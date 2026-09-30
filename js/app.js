@@ -1,26 +1,49 @@
 (function () {
-  const ERAS = window.ERAS;
+  const SUBJECTS = window.SUBJECTS;
   const NUM = ["①", "②", "③", "④", "⑤"];
   const $main = document.getElementById("main");
 
-  const QUIZ_KEY = "passvault_quiz";
+  const quizKey = (s) => `passvault_quiz_${s}`;
+
+  const defaultQuiz = () => ({ exam: "전체", cat: "전체", concept: null, shuffle: false, order: null, idx: 0, selected: null });
+  const defaultVault = () => ({ cat: "전체", q: "", status: "open", open: new Set(), retry: {} });
+
   const ui = {
+    subject: null, // null 이면 과목 선택 화면
     view: "quiz",
     // order: 섞기 모드일 때의 문항 id 순서 (null 이면 회차·번호 순)
-    quiz: { exam: "전체", era: "전체", shuffle: false, order: null, idx: 0, selected: null },
-    vault: { era: "전체", q: "", status: "open", open: new Set(), retry: {} },
+    quiz: defaultQuiz(),
+    vault: defaultVault(),
+    concepts: { q: "", cat: "전체", open: null },
   };
 
-  // 퀴즈 위치(필터·진행 번호) 기억
-  try {
-    const saved = JSON.parse(localStorage.getItem(QUIZ_KEY));
-    if (saved) Object.assign(ui.quiz, saved, { selected: null });
-  } catch (e) {}
-  const saveQuiz = () => {
+  // ───────────── 저장 (과목 선택, 과목별 퀴즈 위치) ─────────────
+  const lsGet = (k) => {
     try {
-      const { exam, era, shuffle, order, idx } = ui.quiz;
-      localStorage.setItem(QUIZ_KEY, JSON.stringify({ exam, era, shuffle, order, idx }));
+      return JSON.parse(localStorage.getItem(k));
+    } catch (e) {
+      return null;
+    }
+  };
+  const lsSet = (k, v) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
     } catch (e) {}
+  };
+
+  function loadQuiz(subject) {
+    const saved = lsGet(quizKey(subject)) || (subject === "history" ? lsGet("passvault_quiz") : null);
+    const q = defaultQuiz();
+    if (saved) {
+      Object.assign(q, saved, { selected: null });
+      if (saved.era && !saved.cat) q.cat = saved.era; // 이전 버전 호환
+    }
+    return q;
+  }
+  const saveQuiz = () => {
+    if (!ui.subject) return;
+    const { exam, cat, concept, shuffle, order, idx } = ui.quiz;
+    lsSet(quizKey(ui.subject), { exam, cat, concept, shuffle, order, idx });
   };
 
   // ───────────── 유틸 ─────────────
@@ -41,14 +64,22 @@
     toast.t = setTimeout(() => (root.innerHTML = ""), 2200);
   }
 
+  const subj = () => SUBJECTS[ui.subject];
+  const questionsOf = (s) => Store.state.questions.filter((q) => Store.subjectOf(q) === s);
+  const wrongOf = (s) =>
+    Store.state.wrong.filter((w) => {
+      const q = Store.question(w.questionId);
+      return q && Store.subjectOf(q) === s;
+    });
+
   const chip = (label, active, action, extra = "") =>
     `<button data-action="${action}" data-value="${esc(label)}" ${extra}
       class="shrink-0 min-h-[44px] px-4 rounded-full text-sm font-medium border transition
       ${active ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:border-brand-500"}">${esc(label)}</button>`;
 
-  const eraChips = (current, action) =>
+  const catChips = (current, action) =>
     `<div class="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
-      ${["전체", ...ERAS].map((e) => chip(e, e === current, action)).join("")}
+      ${["전체", ...subj().categories].map((e) => chip(e, e === current, action)).join("")}
     </div>`;
 
   const badge = (text, cls) => `<span class="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md ${cls}">${esc(text)}</span>`;
@@ -57,7 +88,7 @@
     return `
       <p class="text-[17px] leading-relaxed font-semibold text-slate-900">${esc(q.question)}</p>
       ${q.passage ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">${esc(q.passage)}</div>` : ""}
-      ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="사료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
+      ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="자료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
       ${imageNotice(q)}`;
   }
 
@@ -68,8 +99,8 @@
 
   // 원본 시험지 PDF 경로 (id: "2024_1_07" → exams/2024-1_문제_1.pdf)
   const sourcePdf = (q) => {
-    const m = /^(\d{4})_(\d)_/.exec(q.id);
-    return m ? `exams/${m[1]}-${m[2]}_문제_1.pdf` : null;
+    const m = /(\d{4})_(\d)_\d{2}$/.exec(q.id);
+    return m ? `${SUBJECTS[Store.subjectOf(q)].pdfDir}/${m[1]}-${m[2]}_문제_1.pdf` : null;
   };
 
   function imageNotice(q) {
@@ -106,6 +137,21 @@
     </div>`;
   }
 
+  // 도덕: 문항과 연결된 사상가·사상 → 개념풀이로 이동
+  function conceptLinks(q) {
+    if (!q.concepts || !q.concepts.length || !subj().hasConcepts) return "";
+    return `
+      <div class="mx-4 mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-sm font-bold text-slate-500">관련 개념</span>
+        ${q.concepts
+          .map(
+            (c) => `<button data-action="go-concept" data-value="${esc(c)}"
+              class="min-h-[36px] px-3 rounded-full bg-violet-100 text-violet-800 text-sm font-semibold hover:bg-violet-200">💡 ${esc(c)}</button>`
+          )
+          .join("")}
+      </div>`;
+  }
+
   // FR-05: 오답풀이 카드 (요약 + 선지별 분석 + 핵심 개념)
   function explanationCard(q, userAnswer) {
     const ex = q.explanation || {};
@@ -135,13 +181,53 @@
           <h4 class="text-sm font-bold text-violet-700">🔑 핵심 개념 (Key Concept)</h4>
           <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${esc(ex.key_concept)}</p>
         </div>` : ""}
+        ${conceptLinks(q)}
       </section>`;
   }
 
-  // ───────────── 1. 기출 퀴즈 ─────────────
+  // ───────────── 0. 과목 선택 ─────────────
+  function renderHome() {
+    const cards = Object.values(SUBJECTS)
+      .map((s) => {
+        const qs = questionsOf(s.id);
+        const exams = new Set(qs.map((q) => q.exam)).size;
+        const open = wrongOf(s.id).filter((w) => !w.isResolved).length;
+        const st = Store.state.stats[s.id] || { solved: 0, correct: 0 };
+        const acc = st.solved ? Math.round((st.correct / st.solved) * 100) : null;
+        return `
+          <button data-action="enter" data-value="${s.id}"
+            class="w-full text-left rounded-2xl bg-white border-2 border-slate-200 hover:border-brand-500 p-5 shadow-sm transition">
+            <div class="flex items-center gap-4">
+              <span class="text-5xl" aria-hidden="true">${s.icon}</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-2xl font-extrabold text-slate-900">${esc(s.name)}</p>
+                <p class="text-sm text-slate-500 mt-0.5">${esc(s.desc)}</p>
+              </div>
+              <span class="text-2xl text-slate-300" aria-hidden="true">›</span>
+            </div>
+            <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+              <div class="rounded-xl bg-slate-50 py-2"><p class="text-lg font-bold tabular-nums">${qs.length}</p><p class="text-xs text-slate-500">문항 · ${exams}회차</p></div>
+              <div class="rounded-xl bg-rose-50 py-2"><p class="text-lg font-bold tabular-nums text-rose-600">${open}</p><p class="text-xs text-slate-500">미완료 오답</p></div>
+              <div class="rounded-xl bg-brand-50 py-2"><p class="text-lg font-bold tabular-nums text-brand-600">${acc == null ? "–" : acc + "%"}</p><p class="text-xs text-slate-500">정답률</p></div>
+            </div>
+          </button>`;
+      })
+      .join("");
+    return `
+      <div class="pt-2 pb-4">
+        <p class="text-sm font-semibold text-brand-600">고졸 검정고시 기출 · 오답노트</p>
+        <h2 class="mt-1 text-2xl font-extrabold text-slate-900">어떤 과목을 공부할까요?</h2>
+      </div>
+      <div class="grid gap-4">${cards}</div>`;
+  }
+
+  // ───────────── 1. 기출 풀이 ─────────────
   const filteredQuestions = () =>
-    Store.state.questions.filter(
-      (q) => (ui.quiz.exam === "전체" || q.exam === ui.quiz.exam) && (ui.quiz.era === "전체" || q.category === ui.quiz.era)
+    questionsOf(ui.subject).filter(
+      (q) =>
+        (ui.quiz.exam === "전체" || q.exam === ui.quiz.exam) &&
+        (ui.quiz.cat === "전체" || q.category === ui.quiz.cat) &&
+        (!ui.quiz.concept || (q.concepts || []).includes(ui.quiz.concept))
     );
 
   function quizList() {
@@ -169,12 +255,13 @@
   }
 
   function quizFilters() {
-    const exams = [...new Set(Store.state.questions.map((q) => q.exam))];
+    const qs = questionsOf(ui.subject);
+    const exams = [...new Set(qs.map((q) => q.exam))];
     return `
       <div class="flex gap-2">
         <select id="quiz-exam" aria-label="회차 선택"
           class="flex-1 min-w-0 min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-medium focus:outline-none focus:ring-2 focus:ring-brand-500">
-          <option value="전체">전체 회차 (${Store.state.questions.length}문항)</option>
+          <option value="전체">전체 회차 (${qs.length}문항)</option>
           ${exams.map((e) => `<option value="${esc(e)}" ${e === ui.quiz.exam ? "selected" : ""}>${esc(e)}</option>`).join("")}
         </select>
         <button data-action="quiz-shuffle" aria-pressed="${ui.quiz.shuffle}"
@@ -182,7 +269,11 @@
           🔀 섞기
         </button>
       </div>
-      <div class="mt-2">${eraChips(ui.quiz.era, "quiz-era")}</div>`;
+      <div class="mt-2">${catChips(ui.quiz.cat, "quiz-cat")}</div>
+      ${ui.quiz.concept ? `
+        <button data-action="clear-concept" class="mt-2 min-h-[40px] inline-flex items-center gap-2 px-4 rounded-full bg-violet-600 text-white text-sm font-semibold">
+          💡 ${esc(ui.quiz.concept)} 관련 문제만 <span aria-label="필터 해제">✕</span>
+        </button>` : ""}`;
   }
 
   function renderQuiz() {
@@ -229,16 +320,17 @@
 
   // ───────────── 2. 오답노트 ─────────────
   function vaultItems() {
-    const { era, q, status } = ui.vault;
+    const { cat, q, status } = ui.vault;
     const kw = q.trim().toLowerCase();
-    return Store.state.wrong
+    return wrongOf(ui.subject)
       .map((w) => ({ w, q: Store.question(w.questionId) }))
-      .filter(({ q }) => q)
       .filter(({ w }) => (status === "all" ? true : status === "open" ? !w.isResolved : w.isResolved))
-      .filter(({ q }) => era === "전체" || q.category === era)
+      .filter(({ q }) => cat === "전체" || q.category === cat)
       .filter(({ q }) => {
         if (!kw) return true;
-        const hay = [q.question, q.passage, q.category, q.exam, ...q.options, q.explanation && q.explanation.key_concept].join(" ").toLowerCase();
+        const hay = [q.question, q.passage, q.category, q.exam, ...q.options, ...(q.concepts || []), q.explanation && q.explanation.key_concept]
+          .join(" ")
+          .toLowerCase();
         return hay.includes(kw);
       })
       .sort((a, b) => (b.w.createdAt || 0) - (a.w.createdAt || 0));
@@ -272,7 +364,7 @@
         body = `
           <div class="px-4 pb-4 fade-in">
             ${q.passage ? `<div class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[15px] leading-relaxed whitespace-pre-line">${esc(q.passage)}</div>` : ""}
-            ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="사료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
+            ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="자료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
             ${imageNotice(q)}
             ${optionButtons(q, w.userAnswer, "noop")}
             ${explanationCard(q, w.userAnswer)}
@@ -305,12 +397,12 @@
 
   function renderVaultList() {
     const items = vaultItems();
-    const total = Store.state.wrong.length;
+    const total = wrongOf(ui.subject).length;
     if (!total) {
       return `<div class="py-16 text-center">
         <p class="text-4xl">📭</p>
         <p class="mt-3 font-semibold text-slate-700">아직 저장된 오답이 없어요</p>
-        <p class="mt-1 text-sm text-slate-500">기출 퀴즈에서 틀린 문제는 자동으로 여기에 모여요.</p>
+        <p class="mt-1 text-sm text-slate-500">기출 풀이에서 틀린 문제는 자동으로 여기에 모여요.</p>
         <button data-action="tab" data-view="quiz" class="mt-5 min-h-[48px] px-6 rounded-xl bg-brand-600 text-white font-bold">문제 풀러 가기</button>
       </div>`;
     }
@@ -319,7 +411,7 @@
   }
 
   function renderVault() {
-    const wrong = Store.state.wrong;
+    const wrong = wrongOf(ui.subject);
     const openCnt = wrong.filter((w) => !w.isResolved).length;
     const doneCnt = wrong.length - openCnt;
     const st = ui.vault.status;
@@ -327,36 +419,133 @@
       `<button data-action="vault-status" data-value="${key}" class="min-h-[44px] rounded-lg text-sm font-semibold transition ${st === key ? "bg-white shadow text-brand-700" : "text-slate-500"}">${label} <span class="text-xs">${n}</span></button>`;
     return `
       <div class="relative">
-        <input id="vault-search" type="search" value="${esc(ui.vault.q)}" placeholder="키워드 검색 (예: 대동법, 세종)"
+        <input id="vault-search" type="search" value="${esc(ui.vault.q)}" placeholder="${esc(subj().searchHint)}"
           class="w-full min-h-[48px] rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">🔍</span>
       </div>
       <div class="mt-3 grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200/70">
         ${seg("open", "미완료", openCnt)}${seg("resolved", "복습 완료", doneCnt)}${seg("all", "전체", wrong.length)}
       </div>
-      <div class="mt-3">${eraChips(ui.vault.era, "vault-era")}</div>
+      <div class="mt-3">${catChips(ui.vault.cat, "vault-cat")}</div>
       <div id="vault-list" class="mt-3">${renderVaultList()}</div>`;
   }
 
-  // ───────────── 3. 학습 현황 ─────────────
+  // ───────────── 3. 개념풀이 (도덕) ─────────────
+  const conceptList = () => window.ETHICS_CONCEPTS || [];
+
+  // 개념별 관련 기출 수 / 틀린 문제 수
+  function conceptStats() {
+    const count = new Map();
+    const wrongCnt = new Map();
+    const openWrong = new Set(wrongOf(ui.subject).filter((w) => !w.isResolved).map((w) => w.questionId));
+    for (const q of questionsOf(ui.subject)) {
+      for (const c of q.concepts || []) {
+        count.set(c, (count.get(c) || 0) + 1);
+        if (openWrong.has(q.id)) wrongCnt.set(c, (wrongCnt.get(c) || 0) + 1);
+      }
+    }
+    return { count, wrongCnt };
+  }
+
+  function conceptCard(c, stats) {
+    const open = ui.concepts.open === c.name;
+    const n = stats.count.get(c.name) || 0;
+    const wn = stats.wrongCnt.get(c.name) || 0;
+    return `
+      <li id="concept-${esc(c.name)}" class="rounded-2xl bg-white border ${open ? "border-violet-300" : "border-slate-200"} shadow-sm overflow-hidden">
+        <button data-action="concept-toggle" data-value="${esc(c.name)}" class="w-full text-left px-4 py-3.5 min-h-[44px]" aria-expanded="${open}">
+          <div class="flex items-center gap-2">
+            <span class="text-lg font-extrabold text-slate-900">${esc(c.name)}</span>
+            ${badge(c.type, c.type === "사상가" ? "bg-violet-100 text-violet-700" : "bg-amber-100 text-amber-800")}
+            ${wn ? badge(`오답 ${wn}`, "bg-rose-100 text-rose-700") : ""}
+            <span class="ml-auto text-xs text-slate-400 tabular-nums">기출 ${n}</span>
+          </div>
+          <p class="mt-1 text-sm text-slate-500">${esc(c.tagline || "")}</p>
+          <p class="mt-1.5 text-[15px] leading-relaxed text-slate-800 ${open ? "" : "line-clamp-2"}">${esc(c.summary || "")}</p>
+        </button>
+        ${open ? `
+        <div class="px-4 pb-4 fade-in">
+          ${c.keywords && c.keywords.length ? `
+            <div class="flex flex-wrap gap-1.5">${c.keywords.map((k) => `<span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium">${esc(k)}</span>`).join("")}</div>` : ""}
+          ${c.points && c.points.length ? `
+            <div class="mt-3 rounded-xl bg-brand-50 border border-brand-100 px-4 py-3">
+              <h4 class="text-sm font-bold text-brand-700">📌 시험에 이렇게 나와요</h4>
+              <ul class="mt-1.5 grid gap-1 text-[14px] leading-relaxed text-slate-800 list-disc pl-5">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+            </div>` : ""}
+          ${c.compare ? `
+            <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+              <h4 class="text-sm font-bold text-amber-800">⚠️ 헷갈리지 말기</h4>
+              <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${esc(c.compare)}</p>
+            </div>` : ""}
+          ${c.related && c.related.length ? `
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <span class="text-sm font-bold text-slate-500">함께 보기</span>
+              ${c.related.map((r) => `<button data-action="go-concept" data-value="${esc(r)}" class="min-h-[36px] px-3 rounded-full bg-violet-50 text-violet-700 text-sm font-semibold border border-violet-200">${esc(r)}</button>`).join("")}
+            </div>` : ""}
+          ${n ? `
+            <button data-action="concept-quiz" data-value="${esc(c.name)}" class="mt-4 w-full min-h-[48px] rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold">
+              📖 관련 기출 ${n}문제 풀기
+            </button>` : ""}
+        </div>` : ""}
+      </li>`;
+  }
+
+  function renderConceptList() {
+    const stats = conceptStats();
+    const { q, cat } = ui.concepts;
+    const kw = q.trim().toLowerCase();
+    const list = conceptList()
+      .filter((c) => cat === "전체" || c.category === cat)
+      .filter((c) => {
+        if (!kw) return true;
+        return [c.name, c.tagline, c.summary, ...(c.keywords || []), ...(c.points || []), c.compare].join(" ").toLowerCase().includes(kw);
+      });
+    if (!conceptList().length) return `<div class="py-16 text-center text-slate-500">개념 자료를 준비 중이에요.</div>`;
+    if (!list.length) return `<div class="py-16 text-center text-slate-500">조건에 맞는 개념이 없어요.</div>`;
+    const groups = subj().categories
+      .map((g) => ({ g, items: list.filter((c) => c.category === g) }))
+      .filter((x) => x.items.length);
+    return groups
+      .map(
+        ({ g, items }) => `
+        <h3 class="mt-5 first:mt-0 mb-2 text-sm font-bold text-slate-500">${esc(g)} <span class="font-normal">${items.length}</span></h3>
+        <ul class="grid gap-3">${items.map((c) => conceptCard(c, stats)).join("")}</ul>`
+      )
+      .join("");
+  }
+
+  function renderConcepts() {
+    return `
+      <div class="rounded-2xl bg-violet-600 text-white px-4 py-3">
+        <p class="font-bold">💡 사상가·사상 개념풀이</p>
+        <p class="text-sm text-white/85 mt-0.5">기출에 나온 사상가와 핵심 주장을 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.</p>
+      </div>
+      <div class="mt-3 relative">
+        <input id="concept-search" type="search" value="${esc(ui.concepts.q)}" placeholder="사상가·키워드 검색 (예: 정언 명령)"
+          class="w-full min-h-[48px] rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">🔍</span>
+      </div>
+      <div class="mt-3">${catChips(ui.concepts.cat, "concept-cat")}</div>
+      <div id="concept-list" class="mt-3">${renderConceptList()}</div>`;
+  }
+
+  // ───────────── 4. 학습 현황 ─────────────
   function renderStats() {
-    const { solved, correct } = Store.state.stats;
-    const wrong = Store.state.wrong;
+    const { solved, correct } = Store.state.stats[ui.subject] || { solved: 0, correct: 0 };
+    const wrong = wrongOf(ui.subject);
     const done = wrong.filter((w) => w.isResolved).length;
     const open = wrong.length - done;
     const acc = solved ? Math.round((correct / solved) * 100) : 0;
     const reviewPct = wrong.length ? Math.round((done / wrong.length) * 100) : 0;
+    const { catLabel, categories } = subj();
 
-    const byEra = ERAS.map((era) => {
-      const list = wrong.filter((w) => {
-        const q = Store.question(w.questionId);
-        return q && q.category === era;
-      });
+    const byCat = categories.map((cat) => {
+      const list = wrong.filter((w) => Store.question(w.questionId).category === cat);
       const r = list.filter((w) => w.isResolved).length;
-      return { era, total: list.length, resolved: r, open: list.length - r };
+      return { cat, total: list.length, resolved: r, open: list.length - r };
     });
-    const max = Math.max(1, ...byEra.map((e) => e.total));
-    const weakest = byEra.filter((e) => e.open > 0).sort((a, b) => b.open - a.open)[0];
+    const max = Math.max(1, ...byCat.map((e) => e.total));
+    const weakest = byCat.filter((e) => e.open > 0).sort((a, b) => b.open - a.open)[0];
 
     const tile = (label, value, sub, cls) => `
       <div class="rounded-2xl bg-white border border-slate-200 p-4">
@@ -388,13 +577,13 @@
       </section>
 
       <section class="mt-4 rounded-2xl bg-white border border-slate-200 p-4">
-        <h3 class="font-bold">시대별 오답 분포</h3>
+        <h3 class="font-bold">${catLabel}별 오답 분포</h3>
         <ul class="mt-3 grid gap-3">
-          ${byEra
+          ${byCat
             .map(
               (e) => `
-            <li class="grid grid-cols-[3.5rem_1fr_3.5rem] items-center gap-2 text-sm">
-              <span class="font-semibold text-slate-700">${e.era}</span>
+            <li class="grid grid-cols-[5rem_1fr_3.5rem] items-center gap-2 text-sm">
+              <span class="font-semibold text-slate-700 truncate">${esc(e.cat)}</span>
               <div class="h-3 rounded-full bg-slate-100 overflow-hidden flex">
                 <div class="h-full bg-rose-500" style="width:${(e.open / max) * 100}%"></div>
                 <div class="h-full bg-emerald-500" style="width:${(e.resolved / max) * 100}%"></div>
@@ -414,8 +603,8 @@
       ${weakest ? `
       <section class="mt-4 rounded-2xl bg-brand-900 text-white p-4">
         <p class="text-sm text-white/70">집중 복습 추천</p>
-        <p class="mt-1 font-bold text-lg">'${weakest.era}' 시대 미완료 오답이 ${weakest.open}개 있어요</p>
-        <button data-action="go-vault-era" data-value="${weakest.era}" class="mt-3 min-h-[44px] px-5 rounded-xl bg-white text-brand-900 font-bold">오답노트에서 복습하기</button>
+        <p class="mt-1 font-bold text-lg">'${esc(weakest.cat)}' 미완료 오답이 ${weakest.open}개 있어요</p>
+        <button data-action="go-vault-cat" data-value="${esc(weakest.cat)}" class="mt-3 min-h-[44px] px-5 rounded-xl bg-white text-brand-900 font-bold">오답노트에서 복습하기</button>
       </section>` : ""}
 
       <p class="mt-6 text-center text-xs text-slate-400">
@@ -424,30 +613,91 @@
   }
 
   // ───────────── 렌더 ─────────────
+  const TABS = [
+    { view: "quiz", icon: "📖", label: "기출 풀이" },
+    { view: "vault", icon: "📝", label: "오답노트" },
+    { view: "concepts", icon: "💡", label: "개념풀이", conceptsOnly: true },
+    { view: "stats", icon: "📊", label: "학습 현황" },
+  ];
+
+  function renderChrome() {
+    const s = ui.subject && subj();
+    document.getElementById("header-icon").textContent = s ? s.icon : "📚";
+    document.getElementById("header-title").textContent = s ? `${s.name} Pass Vault` : "검정고시 Pass Vault";
+    document.getElementById("back-btn").classList.toggle("hidden", !s);
+    document.title = s ? `${s.name} Pass Vault` : "검정고시 Pass Vault";
+
+    const nav = document.getElementById("nav");
+    nav.classList.toggle("hidden", !s);
+    if (!s) return;
+    const tabs = TABS.filter((t) => !t.conceptsOnly || s.hasConcepts);
+    const openCnt = wrongOf(ui.subject).filter((w) => !w.isResolved).length;
+    const tabsEl = document.getElementById("tabs");
+    tabsEl.style.gridTemplateColumns = `repeat(${tabs.length}, minmax(0, 1fr))`;
+    tabsEl.innerHTML = tabs
+      .map((t) => {
+        const on = t.view === ui.view;
+        const count = t.view === "vault" && openCnt
+          ? `<span class="absolute top-1.5 left-1/2 ml-3 min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[11px] font-bold leading-5">${openCnt > 99 ? "99+" : openCnt}</span>`
+          : "";
+        return `<button data-action="tab" data-view="${t.view}"
+          class="relative min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-sm ${on ? "text-brand-600 font-bold" : "text-slate-400"}">
+          <span class="text-lg" aria-hidden="true">${t.icon}</span>${t.label}${count}</button>`;
+      })
+      .join("");
+  }
+
   function render() {
-    const views = { quiz: renderQuiz, vault: renderVault, stats: renderStats };
-    $main.innerHTML = views[ui.view]();
-    document.querySelectorAll("#tabs .tab").forEach((t) => {
-      const on = t.dataset.view === ui.view;
-      t.classList.toggle("text-brand-600", on);
-      t.classList.toggle("font-bold", on);
-      t.classList.toggle("text-slate-400", !on);
-    });
-    const openCnt = Store.state.wrong.filter((w) => !w.isResolved).length;
-    const vc = document.getElementById("vault-count");
-    vc.textContent = openCnt > 99 ? "99+" : openCnt;
-    vc.classList.toggle("hidden", !openCnt);
+    renderChrome();
+    if (!ui.subject) {
+      $main.innerHTML = renderHome();
+      return;
+    }
+    const views = { quiz: renderQuiz, vault: renderVault, concepts: renderConcepts, stats: renderStats };
+    $main.innerHTML = (views[ui.view] || renderQuiz)();
+  }
+
+  function enterSubject(id) {
+    ui.subject = id;
+    ui.view = "quiz";
+    ui.quiz = loadQuiz(id);
+    ui.vault = defaultVault();
+    ui.concepts = { q: "", cat: "전체", open: null };
+    // 저장된 회차가 더 이상 없으면 초기화
+    if (ui.quiz.exam !== "전체" && !questionsOf(id).some((q) => q.exam === ui.quiz.exam)) {
+      ui.quiz.exam = "전체";
+      resetQuiz();
+    }
+  }
+
+  function openConcept(name) {
+    ui.view = "concepts";
+    ui.concepts = { q: "", cat: "전체", open: name };
+    render();
+    const el = document.getElementById(`concept-${name}`);
+    if (el) el.scrollIntoView({ block: "start" });
+    else window.scrollTo(0, 0);
   }
 
   const actions = {
+    enter(el) {
+      enterSubject(el.dataset.value);
+      render();
+      window.scrollTo(0, 0);
+    },
+    home() {
+      ui.subject = null;
+      render();
+      window.scrollTo(0, 0);
+    },
     tab(el) {
       ui.view = el.dataset.view;
       ui.vault.retry = {};
       render();
       window.scrollTo(0, 0);
     },
-    "quiz-era"(el) {
-      ui.quiz.era = el.dataset.value;
+    "quiz-cat"(el) {
+      ui.quiz.cat = el.dataset.value;
       resetQuiz();
       render();
     },
@@ -456,6 +706,11 @@
       resetQuiz();
       render();
       toast(ui.quiz.shuffle ? "🔀 문제 순서를 섞었어요" : "회차·번호 순으로 풀어요");
+    },
+    "clear-concept"() {
+      ui.quiz.concept = null;
+      resetQuiz();
+      render();
     },
     answer(el) {
       if (ui.quiz.selected != null) return;
@@ -476,8 +731,8 @@
       render();
       window.scrollTo(0, 0);
     },
-    "vault-era"(el) {
-      ui.vault.era = el.dataset.value;
+    "vault-cat"(el) {
+      ui.vault.cat = el.dataset.value;
       render();
     },
     "vault-status"(el) {
@@ -524,10 +779,31 @@
       Store.remove(id);
       toast("삭제했어요");
     },
-    "go-vault-era"(el) {
+    "go-vault-cat"(el) {
       ui.view = "vault";
-      ui.vault.era = el.dataset.value;
+      ui.vault.cat = el.dataset.value;
       ui.vault.status = "open";
+      render();
+      window.scrollTo(0, 0);
+    },
+    "concept-cat"(el) {
+      ui.concepts.cat = el.dataset.value;
+      render();
+    },
+    "concept-toggle"(el) {
+      const name = el.dataset.value;
+      ui.concepts.open = ui.concepts.open === name ? null : name;
+      render();
+    },
+    "go-concept"(el) {
+      openConcept(el.dataset.value);
+    },
+    "concept-quiz"(el) {
+      ui.view = "quiz";
+      ui.quiz.concept = el.dataset.value;
+      ui.quiz.exam = "전체";
+      ui.quiz.cat = "전체";
+      resetQuiz();
       render();
       window.scrollTo(0, 0);
     },
@@ -543,9 +819,13 @@
 
   // 검색은 입력 포커스를 유지하기 위해 목록만 다시 그림
   document.addEventListener("input", (e) => {
-    if (e.target.id !== "vault-search") return;
-    ui.vault.q = e.target.value;
-    document.getElementById("vault-list").innerHTML = renderVaultList();
+    if (e.target.id === "vault-search") {
+      ui.vault.q = e.target.value;
+      document.getElementById("vault-list").innerHTML = renderVaultList();
+    } else if (e.target.id === "concept-search") {
+      ui.concepts.q = e.target.value;
+      document.getElementById("concept-list").innerHTML = renderConceptList();
+    }
   });
 
   document.addEventListener("change", (e) => {
@@ -558,24 +838,21 @@
   // ───────────── 시작 ─────────────
   function rerenderFromData() {
     const active = document.activeElement;
-    if (ui.view === "vault" && active && active.id === "vault-search") {
+    if (ui.subject && ui.view === "vault" && active && active.id === "vault-search") {
       document.getElementById("vault-list").innerHTML = renderVaultList();
+      renderChrome();
       return;
     }
+    if (ui.subject && ui.view === "concepts" && active && active.id === "concept-search") return;
     render();
   }
 
   Store.on("wrong", rerenderFromData);
-  Store.on("stats", () => ui.view === "stats" && render());
+  Store.on("stats", () => (!ui.subject || ui.view === "stats") && render());
 
   Store.init().then((s) => {
     const b = document.getElementById("mode-badge");
     b.textContent = s.mode === "firebase" ? "☁️ 클라우드 동기화" : "💾 로컬 저장";
-    // 저장된 회차가 더 이상 없으면 초기화
-    if (ui.quiz.exam !== "전체" && !s.questions.some((q) => q.exam === ui.quiz.exam)) {
-      ui.quiz.exam = "전체";
-      resetQuiz();
-    }
     render();
   });
 })();

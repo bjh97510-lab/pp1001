@@ -12,17 +12,39 @@
     uid: null,
     questions: [],
     wrong: [],
-    stats: { solved: 0, correct: 0 },
+    // 과목별 통계: { history: { solved, correct }, ethics: { ... } }
+    stats: {},
   };
 
   let impl = null;
   let byId = new Map();
 
-  // 최신 회차 먼저, 회차 안에서는 문항 번호 순 (id: "2024_1_07")
+  const subjectOf = (q) => (q && q.subject) || "history";
+
+  // 이전 버전의 { solved, correct } 는 한국사 통계로 간주
+  function normalizeStats(s) {
+    s = s || {};
+    const out = {};
+    for (const [k, v] of Object.entries(s)) {
+      if (v && typeof v === "object") out[k] = { solved: v.solved || 0, correct: v.correct || 0 };
+    }
+    if (typeof s.solved === "number") {
+      const h = (out.history = out.history || { solved: 0, correct: 0 });
+      h.solved += s.solved;
+      h.correct += s.correct || 0;
+    }
+    return out;
+  }
+
+  // 최신 회차 먼저, 회차 안에서는 문항 번호 순 (id: "2024_1_07", "ethics_2024_1_07")
+  const idKey = (id) => {
+    const m = /(\d{4})_(\d)_(\d{2})$/.exec(id);
+    return m ? [+m[1], +m[2], +m[3]] : [0, 0, 0];
+  };
   function setQuestions(list) {
     state.questions = list.slice().sort((a, b) => {
-      const [ya, na, qa] = a.id.split("_").map(Number);
-      const [yb, nb, qb] = b.id.split("_").map(Number);
+      const [ya, na, qa] = idKey(a.id);
+      const [yb, nb, qb] = idKey(b.id);
       return yb - ya || nb - na || qa - qb || a.id.localeCompare(b.id);
     });
     byId = new Map(state.questions.map((q) => [q.id, q]));
@@ -39,8 +61,9 @@
         return {};
       }
     };
-    const data = Object.assign({ uid: null, wrong: {}, stats: { solved: 0, correct: 0 } }, load());
+    const data = Object.assign({ uid: null, wrong: {}, stats: {} }, load());
     if (!data.uid) data.uid = "local-" + Math.random().toString(36).slice(2, 10);
+    data.stats = normalizeStats(data.stats);
 
     const save = () => {
       try {
@@ -51,7 +74,7 @@
     };
     const publish = () => {
       state.wrong = Object.entries(data.wrong).map(([id, w]) => Object.assign({ id }, w));
-      state.stats = Object.assign({}, data.stats);
+      state.stats = JSON.parse(JSON.stringify(data.stats));
       emit("wrong", state.wrong);
       emit("stats", state.stats);
     };
@@ -61,8 +84,9 @@
       uid: data.uid,
       start: publish,
       async recordAttempt(q, userAnswer, correct) {
-        data.stats.solved += 1;
-        if (correct) data.stats.correct += 1;
+        const s = (data.stats[subjectOf(q)] = data.stats[subjectOf(q)] || { solved: 0, correct: 0 });
+        s.solved += 1;
+        if (correct) s.correct += 1;
         if (!correct) {
           data.wrong[q.id] = {
             questionId: q.id,
@@ -163,8 +187,7 @@
           emit("wrong", state.wrong);
         });
         fs.onSnapshot(userRef, (snap) => {
-          const s = (snap.exists() && snap.data().stats) || {};
-          state.stats = { solved: s.solved || 0, correct: s.correct || 0 };
+          state.stats = normalizeStats(snap.exists() && snap.data().stats);
           emit("stats", state.stats);
         });
       },
@@ -174,8 +197,10 @@
             userRef,
             {
               stats: {
-                solved: fs.increment(1),
-                correct: fs.increment(correct ? 1 : 0),
+                [subjectOf(q)]: {
+                  solved: fs.increment(1),
+                  correct: fs.increment(correct ? 1 : 0),
+                },
               },
               updatedAt: fs.serverTimestamp(),
             },
@@ -239,5 +264,6 @@
     review: (id, a, c) => impl.review(id, a, c),
     remove: (id) => impl.remove(id),
     question: (id) => byId.get(id),
+    subjectOf,
   };
 })();
