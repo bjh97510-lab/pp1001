@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 기출문제 공통 DB: 로그인(익명 포함) 사용자 읽기 전용, 쓰기는 콘솔/Admin SDK로만
+    match /questions/{questionId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // 사용자 문서(통계) 및 오답노트: 본인만 접근
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /wrong_answers/{docId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.questionId is string
+          && request.resource.data.userAnswer is int
+          && request.resource.data.isResolved is bool;
+      }
+    }
+  }
+}
