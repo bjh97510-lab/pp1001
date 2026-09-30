@@ -11,7 +11,8 @@
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ["Pretendard", "system-ui", "sans-serif"] },
+          // 옛한글(중세 국어)은 Pretendard 에 없으므로 시스템 한글 글꼴로 대체
+          fontFamily: { sans: ["Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "system-ui", "sans-serif"] },
           colors: {
             brand: { 50: "#eef4ff", 100: "#dbe6ff", 500: "#3b5bdb", 600: "#2f4ac0", 700: "#243b98", 900: "#1e2a5a" },
           },
@@ -25,6 +26,10 @@
     .toast-enter { animation: toast .25s ease-out; }
     @keyframes toast { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
     .fade-in { animation: fade .2s ease-out; }
+    /* 국어 지문의 [A] 괄호 범위 */
+    .rng { background: #ede9fe; border-radius: 4px; padding: 0 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+    .rng::before { content: "[" attr(data-l) "] "; font-weight: 700; color: #6d28d9; }
+    u { text-underline-offset: 3px; }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
@@ -92,6 +97,25 @@
   <script src="js/ethics/2018-1.js"></script>
   <script src="js/ethics/concepts-1.js"></script>
   <script src="js/ethics/concepts-2.js"></script>
+  <!-- 고졸 검정고시 국어 기출 -->
+  <script src="js/korean/2026-2.js"></script>
+  <script src="js/korean/2026-1.js"></script>
+  <script src="js/korean/2025-2.js"></script>
+  <script src="js/korean/2025-1.js"></script>
+  <script src="js/korean/2024-2.js"></script>
+  <script src="js/korean/2024-1.js"></script>
+  <script src="js/korean/2023-2.js"></script>
+  <script src="js/korean/2023-1.js"></script>
+  <script src="js/korean/2022-2.js"></script>
+  <script src="js/korean/2022-1.js"></script>
+  <script src="js/korean/2021-2.js"></script>
+  <script src="js/korean/2021-1.js"></script>
+  <script src="js/korean/2020-2.js"></script>
+  <script src="js/korean/2020-1.js"></script>
+  <script src="js/korean/2019-2.js"></script>
+  <script src="js/korean/2019-1.js"></script>
+  <script src="js/korean/2018-2.js"></script>
+  <script src="js/korean/2018-1.js"></script>
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
 </body>

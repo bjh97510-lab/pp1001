@@ -84,18 +84,40 @@
 
   const badge = (text, cls) => `<span class="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md ${cls}">${esc(text)}</span>`;
 
-  function questionBody(q) {
+  // 지문 마크업: __밑줄__ → 밑줄, {A}…{/A} → [A] 괄호 범위
+  const rich = (s) =>
+    esc(s)
+      .replace(/__(.+?)__/gs, "<u>$1</u>")
+      .replace(/\{([A-Z가-힣])\}/g, '<span class="rng" data-l="$1">')
+      .replace(/\{\/[A-Z가-힣]\}/g, "</span>");
+
+  // 제시문(공유 지문 안내 + 지문 + 문항 전용 자료). 한국사·도덕은 passage 만 사용
+  function passageBlock(q, cls = "mt-3") {
     return `
-      <p class="text-[17px] leading-relaxed font-semibold text-slate-900">${esc(q.question)}</p>
-      ${q.passage ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">${esc(q.passage)}</div>` : ""}
+      ${q.groupLabel ? `<p class="${cls} text-sm font-bold text-slate-600">${esc(q.groupLabel)}</p>` : ""}
+      ${q.passage ? `<div class="${q.groupLabel ? "mt-2" : cls} rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">${rich(q.passage)}</div>` : ""}
       ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="자료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
       ${imageNotice(q)}`;
+  }
+
+  const extraBlock = (q) =>
+    q.extra
+      ? `<div class="mt-3 rounded-xl bg-white border-2 border-slate-300 px-4 py-3 text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">${rich(q.extra)}</div>`
+      : "";
+
+  function questionBody(q) {
+    const hasGroup = !!q.groupLabel;
+    const questionEl = `<p class="${hasGroup ? "mt-4" : ""} text-[17px] leading-relaxed font-semibold text-slate-900">${esc(q.question)}</p>`;
+    // 공유 지문이 있으면 지문을 먼저, 없으면 발문을 먼저 (시험지 순서)
+    return hasGroup
+      ? `${passageBlock(q, "")}${questionEl}${extraBlock(q)}`
+      : `${questionEl}${passageBlock(q)}${extraBlock(q)}`;
   }
 
   // 공식 정답표에서 복수 정답을 인정한 문항은 acceptedAnswers 로 표시
   const isCorrect = (q, i) => (q.acceptedAnswers ? q.acceptedAnswers.includes(i) : i === q.answer);
   const answerLabel = (q) =>
-    (q.acceptedAnswers || [q.answer]).map((i) => `${NUM[i]} ${esc(q.options[i])}`).join(", ");
+    (q.acceptedAnswers || [q.answer]).map((i) => `${NUM[i]} ${rich(q.options[i])}`).join(", ");
 
   // 원본 시험지 PDF 경로 (id: "2024_1_07" → exams/2024-1_문제_1.pdf)
   const sourcePdf = (q) => {
@@ -130,7 +152,7 @@
           }
           return `<button data-action="${action}" data-index="${i}" ${id ? `data-id="${esc(id)}"` : ""} ${answered ? "disabled" : ""}
             class="w-full min-h-[52px] flex items-center gap-3 text-left px-4 py-3 rounded-xl border-2 text-[15px] transition ${cls}">
-            <span class="text-lg leading-none">${NUM[i]}</span><span class="flex-1">${esc(opt)}</span>${mark}
+            <span class="text-lg leading-none">${NUM[i]}</span><span class="flex-1">${rich(opt)}</span>${mark}
           </button>`;
         })
         .join("")}
@@ -328,7 +350,7 @@
       .filter(({ q }) => cat === "전체" || q.category === cat)
       .filter(({ q }) => {
         if (!kw) return true;
-        const hay = [q.question, q.passage, q.category, q.exam, ...q.options, ...(q.concepts || []), q.explanation && q.explanation.key_concept]
+        const hay = [q.question, q.passage, q.extra, q.category, q.exam, ...q.options, ...(q.concepts || []), q.explanation && q.explanation.key_concept]
           .join(" ")
           .toLowerCase();
         return hay.includes(kw);
@@ -363,9 +385,8 @@
       } else {
         body = `
           <div class="px-4 pb-4 fade-in">
-            ${q.passage ? `<div class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[15px] leading-relaxed whitespace-pre-line">${esc(q.passage)}</div>` : ""}
-            ${q.imageUrl ? `<img src="${esc(q.imageUrl)}" alt="자료 이미지" loading="lazy" class="mt-3 w-full rounded-xl border border-slate-200" />` : ""}
-            ${imageNotice(q)}
+            ${passageBlock(q, "")}
+            ${extraBlock(q)}
             ${optionButtons(q, w.userAnswer, "noop")}
             ${explanationCard(q, w.userAnswer)}
             <div class="mt-4 grid grid-cols-[1fr_auto] gap-2">
@@ -387,7 +408,7 @@
           </div>
           <p class="mt-2 font-semibold text-[15px] leading-snug text-slate-900">${esc(q.question)}</p>
           <div class="mt-1.5 flex items-center justify-between text-sm">
-            <span class="text-slate-500">내 답 <span class="text-rose-600 font-semibold">${NUM[w.userAnswer]} ${esc(q.options[w.userAnswer])}</span></span>
+            <span class="text-slate-500">내 답 <span class="text-rose-600 font-semibold">${NUM[w.userAnswer]} ${esc(q.options[w.userAnswer].replace(/__|\{\/?[A-Z가-힣]\}/g, ""))}</span></span>
             <span class="text-slate-400 text-lg leading-none transition ${open ? "rotate-180" : ""}">⌄</span>
           </div>
         </button>
