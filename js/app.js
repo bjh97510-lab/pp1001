@@ -5,17 +5,23 @@
 
   const quizKey = (s) => `passvault_quiz_${s}`;
 
-  const defaultQuiz = () => ({ exam: "전체", cat: "전체", concept: null, shuffle: false, order: null, idx: 0, selected: null });
+  // concept: 개념 카드 필터, word: 영어 단어 필터
+  const defaultQuiz = () => ({ exam: "전체", cat: "전체", concept: null, word: null, shuffle: false, order: null, idx: 0, selected: null });
   const defaultVault = () => ({ cat: "전체", q: "", status: "open", open: new Set(), retry: {} });
+  const defaultVocab = () => ({ mode: "list", q: "", filter: "all", lv: "all", sort: "freq", hide: false, open: null, reveal: new Set(), limit: 60, quiz: null, setup: { scope: "todo", dir: "en2ko", size: 10 } });
 
   const ui = {
     subject: null, // null 이면 과목 선택 화면
     view: "quiz",
+    // 기출 풀이(quiz)와 영어 글의 흐름(flow)은 진행 상태를 따로 가짐
     // order: 섞기 모드일 때의 문항 id 순서 (null 이면 회차·번호 순)
-    quiz: defaultQuiz(),
+    quizzes: { quiz: defaultQuiz(), flow: defaultQuiz() },
     vault: defaultVault(),
     concepts: { q: "", cat: "전체", open: null },
+    vocab: defaultVocab(),
   };
+  const qmode = () => (ui.view === "flow" ? "flow" : "quiz");
+  const Q = () => ui.quizzes[qmode()];
 
   // ───────────── 저장 (과목 선택, 과목별 퀴즈 위치) ─────────────
   const lsGet = (k) => {
@@ -31,8 +37,9 @@
     } catch (e) {}
   };
 
-  function loadQuiz(subject) {
-    const saved = lsGet(quizKey(subject)) || (subject === "history" ? lsGet("passvault_quiz") : null);
+  function loadQuiz(subject, mode = "quiz") {
+    const key = mode === "flow" ? quizKey(subject + "_flow") : quizKey(subject);
+    const saved = lsGet(key) || (subject === "history" && mode === "quiz" ? lsGet("passvault_quiz") : null);
     const q = defaultQuiz();
     if (saved) {
       Object.assign(q, saved, { selected: null });
@@ -42,8 +49,9 @@
   }
   const saveQuiz = () => {
     if (!ui.subject) return;
-    const { exam, cat, concept, shuffle, order, idx } = ui.quiz;
-    lsSet(quizKey(ui.subject), { exam, cat, concept, shuffle, order, idx });
+    const { exam, cat, concept, word, shuffle, order, idx } = Q();
+    const key = qmode() === "flow" ? quizKey(ui.subject + "_flow") : quizKey(ui.subject);
+    lsSet(key, { exam, cat, concept, word, shuffle, order, idx });
   };
 
   // ───────────── 유틸 ─────────────
@@ -85,9 +93,12 @@
   const badge = (text, cls) => `<span class="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md ${cls}">${esc(text)}</span>`;
 
   // 지문 마크업: __밑줄__ → 밑줄, {A}…{/A} → [A] 괄호 범위
+  // 빈칸(밑줄 3개 이상)은 밑줄 마크업보다 먼저 처리
   const rich = (s) =>
     esc(s)
+      .replace(/_{3,}/g, "\u0000")
       .replace(/__(.+?)__/gs, "<u>$1</u>")
+      .replace(/\u0000/g, '<span class="inline-block w-16 border-b-2 border-slate-500 align-baseline"></span>')
       .replace(/\{([A-Z가-힣])\}/g, '<span class="rng" data-l="$1">')
       .replace(/\{\/[A-Z가-힣]\}/g, "</span>");
 
@@ -152,7 +163,7 @@
           }
           return `<button data-action="${action}" data-index="${i}" ${id ? `data-id="${esc(id)}"` : ""} ${answered ? "disabled" : ""}
             class="w-full min-h-[52px] flex items-center gap-3 text-left px-4 py-3 rounded-xl border-2 text-[15px] transition ${cls}">
-            <span class="text-lg leading-none">${NUM[i]}</span><span class="flex-1">${rich(opt)}</span>${mark}
+            <span class="text-lg leading-none">${NUM[i]}</span><span class="flex-1">${String(opt).trim() === NUM[i] ? `<span class="text-slate-500">( ${NUM[i]} ) 위치</span>` : rich(opt)}</span>${mark}
           </button>`;
         })
         .join("")}
@@ -198,13 +209,123 @@
               .join("")}
           </ul>
         </div>
+        ${q.translation ? `
+        <details class="mx-4 mb-4 rounded-xl bg-sky-50 border border-sky-200 px-4 py-3" open>
+          <summary class="text-sm font-bold text-sky-800 cursor-pointer min-h-[28px]">🇰🇷 지문 해석</summary>
+          <p class="mt-1.5 text-[14px] leading-relaxed text-slate-800 whitespace-pre-line">${esc(q.translation)}</p>
+        </details>` : ""}
         ${ex.key_concept ? `
         <div class="mx-4 mb-4 rounded-xl bg-violet-50 border border-violet-200 px-4 py-3">
           <h4 class="text-sm font-bold text-violet-700">🔑 핵심 개념 (Key Concept)</h4>
           <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${esc(ex.key_concept)}</p>
         </div>` : ""}
         ${conceptLinks(q)}
+        ${wordLinks(q)}
       </section>`;
+  }
+
+  // ───────────── 영어 단어장 데이터 ─────────────
+  // window.ENGLISH_VOCAB: [{ w: 표제어, p: 품사, m: 뜻, f: [형태들], lv: 1~3, ph: 숙어 여부, u: 기출 밑줄 어휘 }]
+  // 형태(f)를 기준으로 영어 문항과 자동 연결합니다.
+  const V = { built: false, list: [], byWord: new Map(), formMap: new Map(), phrases: [], qWords: new Map(), exCache: new Map() };
+  const stripMarkup = (s) => String(s || "").replace(/__|\{\/?[A-Z가-힣]\}/g, "");
+  const tokenize = (s) =>
+    (stripMarkup(s).toLowerCase().replace(/[’‘]/g, "'").match(/[a-z]+(?:'[a-z]+)*/g) || []).map((t) => t.replace(/'s$/, ""));
+  const englishText = (q) => [q.passage, q.extra, ...(q.options || [])].join("\n");
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const formRe = (e) => new RegExp(`\\b(${e.f.map(escRe).sort((a, b) => b.length - a.length).join("|")})\\b`, "i");
+
+  function buildVocab() {
+    if (V.built) return V;
+    V.built = true;
+    // 파트가 나뉘어 같은 표제어가 두 번 나오면(예: go / went) 형태를 합침
+    const merged = [];
+    for (const e of window.ENGLISH_VOCAB || []) {
+      if (!e || !e.w || !Array.isArray(e.f) || !e.f.length) continue;
+      const prev = V.byWord.get(e.w);
+      if (prev) {
+        prev.f = [...new Set([...prev.f, ...e.f])];
+        prev.u = prev.u || e.u;
+        continue;
+      }
+      V.byWord.set(e.w, e);
+      merged.push(e);
+    }
+    V.list = merged;
+    for (const e of V.list) {
+      e.qids = new Set();
+      if (e.ph) {
+        e.re = formRe(e);
+        V.phrases.push(e);
+      } else for (const f of e.f) if (!V.formMap.has(f)) V.formMap.set(f.toLowerCase(), e);
+    }
+    for (const q of questionsOf("english")) {
+      const text = englishText(q);
+      const words = new Set();
+      for (const t of new Set(tokenize(text))) {
+        const e = V.formMap.get(t);
+        if (e) words.add(e);
+      }
+      const plain = stripMarkup(text);
+      for (const e of V.phrases) if (e.re.test(plain)) words.add(e);
+      for (const e of words) e.qids.add(q.id);
+      V.qWords.set(q.id, [...words]);
+    }
+    return V;
+  }
+
+  // 단어가 쓰인 기출 문장 (최대 n개)
+  function examplesOf(e, n = 3) {
+    if (V.exCache.has(e.w)) return V.exCache.get(e.w);
+    const re = formRe(e);
+    const out = [];
+    const seen = new Set();
+    for (const id of e.qids) {
+      const q = Store.question(id);
+      if (!q) continue;
+      const sentences = stripMarkup([q.passage, q.extra].join("\n"))
+        .replace(/______/g, "____")
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map((s) => s.replace(/^[•◦∙A-Z]{0,1}\s*:\s*|^[•◦∙]\s*/, "").trim())
+        .filter((s) => s.length > 3 && /[a-z]/i.test(s));
+      for (const s of sentences) {
+        if (!re.test(s) || seen.has(s)) continue;
+        seen.add(s);
+        out.push({ s, q });
+        break;
+      }
+      if (out.length >= n) break;
+    }
+    V.exCache.set(e.w, out);
+    return out;
+  }
+  const highlight = (s, e) => esc(s).replace(new RegExp(formRe(e).source, "gi"), '<mark class="bg-amber-200 rounded px-0.5">$1</mark>');
+
+  const wordState = (w) => Store.state.vocab[w] || { k: false, c: 0, x: 0 };
+  const LV = { 1: "기초", 2: "필수", 3: "심화" };
+
+  // 영어: 이 문제에 나온 단어 (어려운 단어 먼저)
+  function wordLinks(q) {
+    if (!subj().hasVocab) return "";
+    buildVocab();
+    const words = (V.qWords.get(q.id) || [])
+      .slice()
+      .sort((a, b) => (b.u ? 1 : 0) - (a.u ? 1 : 0) || (b.lv || 1) - (a.lv || 1) || a.qids.size - b.qids.size)
+      .slice(0, 12);
+    if (!words.length) return "";
+    return `
+      <div class="mx-4 mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+        <h4 class="text-sm font-bold text-amber-800">📚 이 문제의 단어</h4>
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          ${words
+            .map(
+              (e) => `<button data-action="go-word" data-value="${esc(e.w)}"
+                class="min-h-[36px] px-2.5 rounded-lg bg-white border border-amber-200 text-left text-sm hover:border-amber-400">
+                <b class="text-slate-900">${esc(e.w)}</b> <span class="text-slate-500">${esc(e.m)}</span></button>`
+            )
+            .join("")}
+        </div>
+      </div>`;
   }
 
   // ───────────── 0. 과목 선택 ─────────────
@@ -244,19 +365,34 @@
   }
 
   // ───────────── 1. 기출 풀이 ─────────────
-  const filteredQuestions = () =>
-    questionsOf(ui.subject).filter(
+  const filteredQuestions = () => {
+    const flow = qmode() === "flow" ? subj().flowCategory : null;
+    const word = Q().word && subj().hasVocab ? buildVocab().byWord.get(Q().word) : null;
+    return questionsOf(ui.subject).filter(
       (q) =>
-        (ui.quiz.exam === "전체" || q.exam === ui.quiz.exam) &&
-        (ui.quiz.cat === "전체" || q.category === ui.quiz.cat) &&
-        (!ui.quiz.concept || (q.concepts || []).includes(ui.quiz.concept))
+        (Q().exam === "전체" || q.exam === Q().exam) &&
+        (flow ? q.category === flow : Q().cat === "전체" || q.category === Q().cat) &&
+        (!Q().concept || (q.concepts || []).includes(Q().concept)) &&
+        (!word || word.qids.has(q.id))
     );
+  };
+
+  const FLOW_TIPS = `
+    <details class="rounded-2xl bg-teal-600 text-white px-4 py-3" open>
+      <summary class="font-bold cursor-pointer min-h-[28px]">🧩 글의 흐름 문제 풀이 요령</summary>
+      <ul class="mt-2 grid gap-1.5 text-sm text-white/95 list-disc pl-5">
+        <li><b>주어진 문장 넣기</b>: 주어진 문장의 연결어(However, Also…)와 대명사(this, they, these)가 가리키는 말을 찾아, 그 말이 나온 문장 바로 뒤에 넣어요.</li>
+        <li><b>관계없는 문장</b>: 첫 문장(주제문)을 먼저 찾고, 주제에서 벗어난 이야기를 하는 문장을 골라요.</li>
+        <li><b>바로 뒤/앞에 이어질 내용</b>: 마지막 문장(또는 첫 문장)이 다음 내용을 예고해요. 특히 However, several types of… 같은 표현에 주목!</li>
+        <li><b>글의 순서</b>: 연결어·대명사·시간 표현으로 앞뒤를 이어 봐요.</li>
+      </ul>
+    </details>`;
 
   function quizList() {
     const list = filteredQuestions();
-    if (!ui.quiz.shuffle || !ui.quiz.order) return list;
+    if (!Q().shuffle || !Q().order) return list;
     const byId = new Map(list.map((q) => [q.id, q]));
-    const ordered = ui.quiz.order.map((id) => byId.get(id)).filter(Boolean);
+    const ordered = Q().order.map((id) => byId.get(id)).filter(Boolean);
     return ordered.length === list.length ? ordered : list;
   }
 
@@ -270,31 +406,37 @@
   };
 
   function resetQuiz() {
-    ui.quiz.idx = 0;
-    ui.quiz.selected = null;
-    ui.quiz.order = ui.quiz.shuffle ? shuffledIds(filteredQuestions()) : null;
+    Q().idx = 0;
+    Q().selected = null;
+    Q().order = Q().shuffle ? shuffledIds(filteredQuestions()) : null;
     saveQuiz();
   }
 
   function quizFilters() {
-    const qs = questionsOf(ui.subject);
+    const flow = qmode() === "flow";
+    const qs = questionsOf(ui.subject).filter((q) => !flow || q.category === subj().flowCategory);
     const exams = [...new Set(qs.map((q) => q.exam))];
     return `
+      ${flow ? `${FLOW_TIPS}<div class="h-3"></div>` : ""}
       <div class="flex gap-2">
         <select id="quiz-exam" aria-label="회차 선택"
           class="flex-1 min-w-0 min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-medium focus:outline-none focus:ring-2 focus:ring-brand-500">
-          <option value="전체">전체 회차 (${qs.length}문항)</option>
-          ${exams.map((e) => `<option value="${esc(e)}" ${e === ui.quiz.exam ? "selected" : ""}>${esc(e)}</option>`).join("")}
+          <option value="전체">전체 회차 (${flow ? "글의 흐름 " : ""}${qs.length}문항)</option>
+          ${exams.map((e) => `<option value="${esc(e)}" ${e === Q().exam ? "selected" : ""}>${esc(e)}</option>`).join("")}
         </select>
-        <button data-action="quiz-shuffle" aria-pressed="${ui.quiz.shuffle}"
-          class="shrink-0 min-h-[44px] px-4 rounded-xl border text-sm font-semibold ${ui.quiz.shuffle ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600"}">
+        <button data-action="quiz-shuffle" aria-pressed="${Q().shuffle}"
+          class="shrink-0 min-h-[44px] px-4 rounded-xl border text-sm font-semibold ${Q().shuffle ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600"}">
           🔀 섞기
         </button>
       </div>
-      <div class="mt-2">${catChips(ui.quiz.cat, "quiz-cat")}</div>
-      ${ui.quiz.concept ? `
+      ${flow ? "" : `<div class="mt-2">${catChips(Q().cat, "quiz-cat")}</div>`}
+      ${Q().concept ? `
         <button data-action="clear-concept" class="mt-2 min-h-[40px] inline-flex items-center gap-2 px-4 rounded-full bg-violet-600 text-white text-sm font-semibold">
-          💡 ${esc(ui.quiz.concept)} 관련 문제만 <span aria-label="필터 해제">✕</span>
+          💡 ${esc(Q().concept)} 관련 문제만 <span aria-label="필터 해제">✕</span>
+        </button>` : ""}
+      ${Q().word ? `
+        <button data-action="clear-word" class="mt-2 min-h-[40px] inline-flex items-center gap-2 px-4 rounded-full bg-amber-500 text-white text-sm font-semibold">
+          📚 '${esc(Q().word)}'가 나온 문제만 <span aria-label="필터 해제">✕</span>
         </button>` : ""}`;
   }
 
@@ -303,17 +445,17 @@
     if (!list.length) {
       return `${quizFilters()}<div class="py-20 text-center text-slate-500">조건에 맞는 문제가 없어요.</div>`;
     }
-    if (ui.quiz.idx >= list.length) ui.quiz.idx = 0;
-    const q = list[ui.quiz.idx];
-    const sel = ui.quiz.selected;
+    if (Q().idx >= list.length) Q().idx = 0;
+    const q = list[Q().idx];
+    const sel = Q().selected;
     const answered = sel != null;
     const correct = answered && isCorrect(q, sel);
-    const pct = Math.round(((ui.quiz.idx + (answered ? 1 : 0)) / list.length) * 100);
+    const pct = Math.round(((Q().idx + (answered ? 1 : 0)) / list.length) * 100);
 
     return `
       ${quizFilters()}
       <div class="mt-3 flex items-center gap-3 text-sm text-slate-500">
-        <span class="font-semibold text-slate-700">${ui.quiz.idx + 1} / ${list.length}</span>
+        <span class="font-semibold text-slate-700">${Q().idx + 1} / ${list.length}</span>
         <div class="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-brand-500 transition-all" style="width:${pct}%"></div></div>
       </div>
 
@@ -336,7 +478,7 @@
         </div>
         ${explanationCard(q, sel)}
         <button data-action="next" class="mt-5 w-full min-h-[52px] rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base">
-          ${ui.quiz.idx + 1 >= list.length ? "처음부터 다시 풀기 ↺" : "다음 문제 →"}
+          ${Q().idx + 1 >= list.length ? "처음부터 다시 풀기 ↺" : "다음 문제 →"}
         </button>` : ""}`;
   }
 
@@ -451,8 +593,16 @@
       <div id="vault-list" class="mt-3">${renderVaultList()}</div>`;
   }
 
-  // ───────────── 3. 개념풀이 (도덕) ─────────────
-  const conceptList = () => window.ETHICS_CONCEPTS || [];
+  // ───────────── 3. 개념풀이(도덕) · 개념정리(한국사) ─────────────
+  const conceptList = () => (ui.subject === "ethics" ? window.ETHICS_CONCEPTS : ui.subject === "history" ? window.HISTORY_CONCEPTS : null) || [];
+  const TYPE_COLOR = {
+    사상가: "bg-violet-100 text-violet-700",
+    인물: "bg-violet-100 text-violet-700",
+    사건: "bg-rose-100 text-rose-700",
+    "제도·정책": "bg-sky-100 text-sky-700",
+    "국가·단체": "bg-emerald-100 text-emerald-700",
+    "문화·유산": "bg-amber-100 text-amber-800",
+  };
 
   // 개념별 관련 기출 수 / 틀린 문제 수
   function conceptStats() {
@@ -477,7 +627,7 @@
         <button data-action="concept-toggle" data-value="${esc(c.name)}" class="w-full text-left px-4 py-3.5 min-h-[44px]" aria-expanded="${open}">
           <div class="flex items-center gap-2">
             <span class="text-lg font-extrabold text-slate-900">${esc(c.name)}</span>
-            ${badge(c.type, c.type === "사상가" ? "bg-violet-100 text-violet-700" : "bg-amber-100 text-amber-800")}
+            ${c.type ? badge(c.type, TYPE_COLOR[c.type] || "bg-amber-100 text-amber-800") : ""}
             ${wn ? badge(`오답 ${wn}`, "bg-rose-100 text-rose-700") : ""}
             <span class="ml-auto text-xs text-slate-400 tabular-nums">기출 ${n}</span>
           </div>
@@ -538,16 +688,251 @@
   function renderConcepts() {
     return `
       <div class="rounded-2xl bg-violet-600 text-white px-4 py-3">
-        <p class="font-bold">💡 사상가·사상 개념풀이</p>
-        <p class="text-sm text-white/85 mt-0.5">기출에 나온 사상가와 핵심 주장을 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.</p>
+        <p class="font-bold">${esc(subj().conceptTitle)}</p>
+        <p class="text-sm text-white/85 mt-0.5">${esc(subj().conceptDesc)}</p>
       </div>
       <div class="mt-3 relative">
-        <input id="concept-search" type="search" value="${esc(ui.concepts.q)}" placeholder="사상가·키워드 검색 (예: 정언 명령)"
+        <input id="concept-search" type="search" value="${esc(ui.concepts.q)}" placeholder="${esc(subj().conceptHint)}"
           class="w-full min-h-[48px] rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">🔍</span>
       </div>
       <div class="mt-3">${catChips(ui.concepts.cat, "concept-cat")}</div>
       <div id="concept-list" class="mt-3">${renderConceptList()}</div>`;
+  }
+
+  // ───────────── 영어 단어장 (단어 목록 · 단어 퀴즈) ─────────────
+  const VOCAB_FILTERS = [
+    ["all", "전체"],
+    ["todo", "안 외운 단어"],
+    ["confused", "헷갈린 단어"],
+    ["known", "외운 단어"],
+    ["tested", "기출 밑줄 어휘"],
+  ];
+  function vocabMatches(e, filter) {
+    const s = wordState(e.w);
+    if (filter === "todo") return !s.k;
+    if (filter === "confused") return !s.k && s.x > 0;
+    if (filter === "known") return s.k;
+    if (filter === "tested") return !!e.u;
+    return true;
+  }
+
+  function vocabItems() {
+    const { q, filter, lv, sort } = ui.vocab;
+    const kw = q.trim().toLowerCase();
+    const list = buildVocab().list.filter(
+      (e) =>
+        vocabMatches(e, filter) &&
+        (lv === "all" || String(e.lv || 1) === lv) &&
+        (!kw || e.w.toLowerCase().includes(kw) || e.f.some((f) => f.includes(kw)) || (e.m || "").includes(kw))
+    );
+    return sort === "abc" ? list.sort((a, b) => a.w.localeCompare(b.w)) : list.sort((a, b) => b.qids.size - a.qids.size || a.w.localeCompare(b.w));
+  }
+
+  function wordCard(e) {
+    const s = wordState(e.w);
+    const open = ui.vocab.open === e.w;
+    const hidden = ui.vocab.hide && !ui.vocab.reveal.has(e.w) && !open;
+    const n = e.qids.size;
+    return `
+      <li id="word-${esc(e.w)}" class="rounded-xl bg-white border ${open ? "border-amber-300" : s.k ? "border-emerald-200" : "border-slate-200"} overflow-hidden">
+        <div class="flex items-center gap-2 pl-2 pr-3">
+          <button data-action="word-known" data-value="${esc(e.w)}" aria-pressed="${s.k}" aria-label="${s.k ? "외운 단어 해제" : "외웠어요"}"
+            class="shrink-0 w-11 h-11 rounded-lg text-xl ${s.k ? "text-emerald-600" : "text-slate-300 hover:text-slate-500"}">${s.k ? "✔" : "○"}</button>
+          <button data-action="word-toggle" data-value="${esc(e.w)}" class="flex-1 min-w-0 text-left py-2.5 min-h-[44px]">
+            <span class="flex items-baseline gap-1.5 flex-wrap">
+              <b class="text-[17px] text-slate-900">${esc(e.w)}</b>
+              <span class="text-xs text-slate-400">${esc(e.p || "")}</span>
+              ${e.u ? `<span class="text-[11px] font-bold text-amber-700 bg-amber-100 rounded px-1">밑줄</span>` : ""}
+              ${!s.k && s.x ? `<span class="text-[11px] font-bold text-rose-700 bg-rose-100 rounded px-1">헷갈림 ${s.x}</span>` : ""}
+            </span>
+            <span class="block text-[15px] ${hidden ? "text-transparent bg-slate-200 rounded select-none" : "text-slate-700"}">${esc(e.m || "")}</span>
+          </button>
+          <span class="shrink-0 text-xs text-slate-400 tabular-nums">기출 ${n}</span>
+        </div>
+        ${open ? `
+        <div class="px-4 pb-4 fade-in">
+          <div class="flex flex-wrap gap-1.5 text-xs">
+            ${badge(LV[e.lv || 1] || "기초", "bg-slate-100 text-slate-600")}
+            ${e.f.length > 1 ? `<span class="text-slate-500">형태: ${esc(e.f.join(", "))}</span>` : ""}
+          </div>
+          ${examplesOf(e).length ? `
+            <div class="mt-3 grid gap-2">
+              ${examplesOf(e)
+                .map(
+                  ({ s: sen, q }) => `<div class="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-[14px] leading-relaxed">
+                    <p class="text-slate-800">${highlight(sen, e)}</p>
+                    <p class="mt-0.5 text-xs text-slate-500">${esc(q.exam)} ${q.number}번</p></div>`
+                )
+                .join("")}
+            </div>` : ""}
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button data-action="word-known" data-value="${esc(e.w)}" class="min-h-[44px] rounded-xl font-bold ${s.k ? "bg-slate-100 text-slate-600" : "bg-emerald-600 text-white"}">${s.k ? "다시 외우기" : "✔ 외웠어요"}</button>
+            ${n ? `<button data-action="word-questions" data-value="${esc(e.w)}" class="min-h-[44px] rounded-xl bg-brand-600 text-white font-bold">📖 기출 ${n}문제 풀기</button>` : "<span></span>"}
+          </div>
+        </div>` : ""}
+      </li>`;
+  }
+
+  function renderWordList() {
+    const items = vocabItems();
+    if (!buildVocab().list.length) return `<div class="py-16 text-center text-slate-500">단어장을 준비 중이에요.</div>`;
+    if (!items.length) return `<div class="py-16 text-center text-slate-500">조건에 맞는 단어가 없어요.</div>`;
+    const shown = items.slice(0, ui.vocab.limit);
+    return `
+      <p class="mb-2 text-sm text-slate-500">${items.length}개 단어</p>
+      <ul class="grid gap-2">${shown.map(wordCard).join("")}</ul>
+      ${items.length > shown.length ? `<button data-action="vocab-more" class="mt-3 w-full min-h-[48px] rounded-xl bg-white border border-slate-200 font-semibold text-slate-600">더 보기 (${items.length - shown.length}개 남음)</button>` : ""}`;
+  }
+
+  // 단어 퀴즈 ─ 범위·방향·문항 수를 고르고 4지선다로 풀기
+  const QUIZ_SCOPES = [
+    ["todo", "안 외운 단어"],
+    ["confused", "헷갈린 단어"],
+    ["tested", "기출 밑줄 어휘"],
+    ["top", "자주 나온 단어 300"],
+    ["all", "전체 단어"],
+  ];
+  function scopeWords(scope) {
+    const list = buildVocab().list;
+    if (scope === "top") return list.slice().sort((a, b) => b.qids.size - a.qids.size).slice(0, 300);
+    return list.filter((e) => vocabMatches(e, scope));
+  }
+  const pick = (arr, n) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  };
+  function makeWordQuiz(words, dir) {
+    const all = buildVocab().list;
+    const items = words.map((e) => {
+      const samePos = all.filter((o) => o !== e && o.p === e.p && o.m !== e.m);
+      const pool = samePos.length >= 3 ? samePos : all.filter((o) => o !== e && o.m !== e.m);
+      const options = pick([e, ...pick(pool, 3)], 4);
+      return { e, options, answer: options.indexOf(e) };
+    });
+    return { dir, items, i: 0, sel: null, results: [] };
+  }
+
+  function renderWordQuiz() {
+    const z = ui.vocab.quiz;
+    if (!z) {
+      const st = ui.vocab.setup;
+      const seg = (group, key, label, n) =>
+        `<button data-action="wq-setup" data-group="${group}" data-value="${key}"
+          class="min-h-[44px] px-3 rounded-xl border text-sm font-semibold ${st[group] == key ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600"}">${label}${n != null ? ` <span class="text-xs opacity-80">${n}</span>` : ""}</button>`;
+      return `
+        <section class="rounded-2xl bg-white border border-slate-200 p-4">
+          <h3 class="font-bold">범위</h3>
+          <div class="mt-2 flex flex-wrap gap-2">${QUIZ_SCOPES.map(([k, l]) => seg("scope", k, l, scopeWords(k).length)).join("")}</div>
+          <h3 class="mt-4 font-bold">방향</h3>
+          <div class="mt-2 flex flex-wrap gap-2">${seg("dir", "en2ko", "영어 → 뜻")}${seg("dir", "ko2en", "뜻 → 영어")}</div>
+          <h3 class="mt-4 font-bold">문제 수</h3>
+          <div class="mt-2 flex flex-wrap gap-2">${[10, 20, 30].map((n) => seg("size", n, `${n}문제`)).join("")}</div>
+          <button data-action="wq-start" class="mt-5 w-full min-h-[52px] rounded-xl bg-brand-600 text-white font-bold text-base">단어 퀴즈 시작</button>
+        </section>
+        <p class="mt-3 text-sm text-slate-500 text-center">틀린 단어는 '헷갈린 단어'로 모여요. 외운 단어는 ✔ 표시로 목록에서 관리할 수 있어요.</p>`;
+    }
+    if (z.i >= z.items.length) {
+      const wrongItems = z.items.filter((_, k) => !z.results[k]);
+      const score = z.results.filter(Boolean).length;
+      return `
+        <section class="rounded-2xl bg-white border border-slate-200 p-5 text-center">
+          <p class="text-5xl">${score === z.items.length ? "🏆" : score >= z.items.length * 0.7 ? "🎉" : "💪"}</p>
+          <p class="mt-2 text-2xl font-extrabold">${score} / ${z.items.length}</p>
+          <p class="text-slate-500">${score === z.items.length ? "완벽해요!" : "틀린 단어를 한 번 더 보고 가요."}</p>
+        </section>
+        ${wrongItems.length ? `
+          <section class="mt-3 rounded-2xl bg-white border border-slate-200 p-4">
+            <h3 class="font-bold text-rose-600">틀린 단어 ${wrongItems.length}</h3>
+            <ul class="mt-2 grid gap-1.5">${wrongItems.map(({ e }) => `<li class="flex gap-2 text-[15px]"><b>${esc(e.w)}</b><span class="text-slate-600">${esc(e.m)}</span></li>`).join("")}</ul>
+          </section>` : ""}
+        <div class="mt-3 grid ${wrongItems.length ? "grid-cols-2" : "grid-cols-1"} gap-2">
+          ${wrongItems.length ? `<button data-action="wq-retry" class="min-h-[48px] rounded-xl bg-rose-600 text-white font-bold">틀린 단어 다시</button>` : ""}
+          <button data-action="wq-exit" class="min-h-[48px] rounded-xl bg-slate-100 text-slate-700 font-bold">처음으로</button>
+        </div>`;
+    }
+    const it = z.items[z.i];
+    const en2ko = z.dir === "en2ko";
+    const answered = z.sel != null;
+    const ex = answered ? examplesOf(it.e, 1)[0] : null;
+    return `
+      <div class="flex items-center gap-3 text-sm text-slate-500">
+        <span class="font-semibold text-slate-700">${z.i + 1} / ${z.items.length}</span>
+        <div class="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-amber-500" style="width:${((z.i + (answered ? 1 : 0)) / z.items.length) * 100}%"></div></div>
+        <button data-action="wq-exit" class="min-h-[36px] px-2 text-slate-400">그만하기</button>
+      </div>
+      <section class="mt-3 rounded-2xl bg-white border border-slate-200 p-5 text-center">
+        <p class="text-xs text-slate-400">${en2ko ? "이 단어의 뜻은?" : "이 뜻의 영어 단어는?"}</p>
+        <p class="mt-2 ${en2ko ? "text-3xl font-extrabold" : "text-xl font-bold"} text-slate-900">${esc(en2ko ? it.e.w : it.e.m)}</p>
+        ${en2ko && it.e.p ? `<p class="text-sm text-slate-400 mt-1">${esc(it.e.p)}</p>` : ""}
+      </section>
+      <div class="mt-3 grid gap-2.5">
+        ${it.options
+          .map((o, k) => {
+            let cls = "bg-white border-slate-200 hover:border-brand-500";
+            if (answered) cls = k === it.answer ? "bg-emerald-50 border-emerald-500" : k === z.sel ? "bg-rose-50 border-rose-500" : "bg-white border-slate-200 opacity-60";
+            return `<button data-action="wq-answer" data-index="${k}" ${answered ? "disabled" : ""}
+              class="w-full min-h-[52px] flex items-center gap-3 text-left px-4 py-3 rounded-xl border-2 text-[16px] ${cls}">
+              <span class="text-lg">${NUM[k]}</span><span>${esc(en2ko ? o.m : o.w)}</span></button>`;
+          })
+          .join("")}
+      </div>
+      ${answered ? `
+        <div class="fade-in mt-3 rounded-xl ${z.results[z.i] ? "bg-emerald-600" : "bg-rose-600"} text-white px-4 py-3">
+          <p class="font-bold">${z.results[z.i] ? "정답!" : "오답"} · ${esc(it.e.w)} = ${esc(it.e.m)}</p>
+          ${ex ? `<p class="mt-1 text-sm text-white/90">${esc(ex.s)} <span class="opacity-75">(${esc(ex.q.exam)} ${ex.q.number}번)</span></p>` : ""}
+        </div>
+        <button data-action="wq-next" class="mt-3 w-full min-h-[52px] rounded-xl bg-brand-600 text-white font-bold">${z.i + 1 >= z.items.length ? "결과 보기" : "다음 단어 →"}</button>` : ""}`;
+  }
+
+  function renderVocab() {
+    const all = buildVocab().list;
+    const known = all.filter((e) => wordState(e.w).k).length;
+    const confused = all.filter((e) => vocabMatches(e, "confused")).length;
+    const m = ui.vocab.mode;
+    const tab = (key, label) =>
+      `<button data-action="vocab-mode" data-value="${key}" class="min-h-[44px] rounded-lg text-sm font-semibold ${m === key ? "bg-white shadow text-brand-700" : "text-slate-500"}">${label}</button>`;
+    const head = `
+      <div class="rounded-2xl bg-amber-500 text-white px-4 py-3">
+        <p class="font-bold">📚 기출 영어 단어장</p>
+        <p class="text-sm text-white/90 mt-0.5">최근 기출 ${questionsOf("english").length}문항에 나온 단어 ${all.length}개 · 외운 단어 ${known} · 헷갈린 단어 ${confused}</p>
+        <div class="mt-2 h-2 rounded-full bg-white/30 overflow-hidden"><div class="h-full bg-white" style="width:${all.length ? (known / all.length) * 100 : 0}%"></div></div>
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-200/70">${tab("list", "📖 단어 목록")}${tab("quiz", "✏️ 단어 퀴즈")}</div>`;
+    if (m === "quiz") return `${head}<div class="mt-3">${renderWordQuiz()}</div>`;
+    const v = ui.vocab;
+    const chip2 = (action, key, label, on) =>
+      `<button data-action="${action}" data-value="${key}" class="shrink-0 min-h-[40px] px-3 rounded-full text-sm font-medium border ${on ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600"}">${label}</button>`;
+    return `
+      ${head}
+      <div class="mt-3 relative">
+        <input id="vocab-search" type="search" value="${esc(v.q)}" placeholder="영어 단어나 뜻 검색" autocapitalize="off"
+          class="w-full min-h-[48px] rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">🔍</span>
+      </div>
+      <div class="mt-3 -mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${VOCAB_FILTERS.map(([k, l]) => chip2("vocab-filter", k, l, v.filter === k)).join("")}</div>
+      <div class="mt-2 -mx-4 px-4 flex gap-2 overflow-x-auto pb-1 items-center" style="scrollbar-width:none">
+        ${[["all", "모든 수준"], ["1", "기초"], ["2", "필수"], ["3", "심화"]].map(([k, l]) => chip2("vocab-lv", k, l, v.lv === k)).join("")}
+        <span class="w-px h-6 bg-slate-300 shrink-0"></span>
+        ${chip2("vocab-sort", v.sort === "freq" ? "abc" : "freq", v.sort === "freq" ? "빈도순" : "ABC순", false)}
+        ${chip2("vocab-hide", "", v.hide ? "🙈 뜻 가림" : "👀 뜻 보기", v.hide)}
+      </div>
+      <div id="vocab-list" class="mt-3">${renderWordList()}</div>`;
+  }
+
+  function openWord(w) {
+    ui.view = "vocab";
+    ui.vocab.mode = "list";
+    ui.vocab.q = w;
+    ui.vocab.filter = "all";
+    ui.vocab.lv = "all";
+    ui.vocab.open = w;
+    render();
+    window.scrollTo(0, 0);
   }
 
   // ───────────── 4. 학습 현황 ─────────────
@@ -621,6 +1006,23 @@
         </div>
       </section>
 
+      ${subj().hasVocab ? (() => {
+        const all = buildVocab().list;
+        const known = all.filter((e) => wordState(e.w).k).length;
+        const confused = all.filter((e) => vocabMatches(e, "confused")).length;
+        const pct = all.length ? Math.round((known / all.length) * 100) : 0;
+        return `
+      <section class="mt-4 rounded-2xl bg-white border border-slate-200 p-4">
+        <div class="flex items-baseline justify-between">
+          <h3 class="font-bold">📚 기출 단어 암기</h3>
+          <span class="text-sm text-slate-500 tabular-nums">${known} / ${all.length}</span>
+        </div>
+        <div class="mt-3 h-4 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-amber-500 rounded-full" style="width:${pct}%"></div></div>
+        <p class="mt-2 text-xs text-slate-500">외운 단어 ${pct}% · 헷갈린 단어 ${confused}개</p>
+        ${confused ? `<button data-action="go-confused" class="mt-3 min-h-[44px] px-4 rounded-xl bg-amber-500 text-white font-bold">헷갈린 단어 퀴즈</button>` : ""}
+      </section>`;
+      })() : ""}
+
       ${weakest ? `
       <section class="mt-4 rounded-2xl bg-brand-900 text-white p-4">
         <p class="text-sm text-white/70">집중 복습 추천</p>
@@ -636,8 +1038,10 @@
   // ───────────── 렌더 ─────────────
   const TABS = [
     { view: "quiz", icon: "📖", label: "기출 풀이" },
+    { view: "vocab", icon: "🔤", label: "단어장", when: (s) => s.hasVocab },
+    { view: "flow", icon: "🧩", label: "글의 흐름", when: (s) => s.flowCategory },
     { view: "vault", icon: "📝", label: "오답노트" },
-    { view: "concepts", icon: "💡", label: "개념풀이", conceptsOnly: true },
+    { view: "concepts", icon: "💡", label: (s) => s.conceptTab, when: (s) => s.hasConcepts },
     { view: "stats", icon: "📊", label: "학습 현황" },
   ];
 
@@ -651,7 +1055,7 @@
     const nav = document.getElementById("nav");
     nav.classList.toggle("hidden", !s);
     if (!s) return;
-    const tabs = TABS.filter((t) => !t.conceptsOnly || s.hasConcepts);
+    const tabs = TABS.filter((t) => !t.when || t.when(s));
     const openCnt = wrongOf(ui.subject).filter((w) => !w.isResolved).length;
     const tabsEl = document.getElementById("tabs");
     tabsEl.style.gridTemplateColumns = `repeat(${tabs.length}, minmax(0, 1fr))`;
@@ -661,9 +1065,10 @@
         const count = t.view === "vault" && openCnt
           ? `<span class="absolute top-1.5 left-1/2 ml-3 min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[11px] font-bold leading-5">${openCnt > 99 ? "99+" : openCnt}</span>`
           : "";
+        const label = typeof t.label === "function" ? t.label(s) : t.label;
         return `<button data-action="tab" data-view="${t.view}"
-          class="relative min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-sm ${on ? "text-brand-600 font-bold" : "text-slate-400"}">
-          <span class="text-lg" aria-hidden="true">${t.icon}</span>${t.label}${count}</button>`;
+          class="relative min-h-[56px] flex flex-col items-center justify-center gap-0.5 ${tabs.length > 4 ? "text-xs" : "text-sm"} ${on ? "text-brand-600 font-bold" : "text-slate-400"}">
+          <span class="text-lg" aria-hidden="true">${t.icon}</span>${label}${count}</button>`;
       })
       .join("");
   }
@@ -674,21 +1079,25 @@
       $main.innerHTML = renderHome();
       return;
     }
-    const views = { quiz: renderQuiz, vault: renderVault, concepts: renderConcepts, stats: renderStats };
+    const views = { quiz: renderQuiz, flow: renderQuiz, vocab: renderVocab, vault: renderVault, concepts: renderConcepts, stats: renderStats };
     $main.innerHTML = (views[ui.view] || renderQuiz)();
   }
 
   function enterSubject(id) {
     ui.subject = id;
-    ui.view = "quiz";
-    ui.quiz = loadQuiz(id);
+    ui.quizzes = { quiz: loadQuiz(id, "quiz"), flow: loadQuiz(id, "flow") };
     ui.vault = defaultVault();
     ui.concepts = { q: "", cat: "전체", open: null };
+    ui.vocab = defaultVocab();
     // 저장된 회차가 더 이상 없으면 초기화
-    if (ui.quiz.exam !== "전체" && !questionsOf(id).some((q) => q.exam === ui.quiz.exam)) {
-      ui.quiz.exam = "전체";
-      resetQuiz();
+    for (const mode of ["quiz", "flow"]) {
+      ui.view = mode;
+      if (Q().exam !== "전체" && !questionsOf(id).some((q) => q.exam === Q().exam)) {
+        Q().exam = "전체";
+        resetQuiz();
+      }
     }
+    ui.view = "quiz";
   }
 
   function openConcept(name) {
@@ -718,36 +1127,139 @@
       window.scrollTo(0, 0);
     },
     "quiz-cat"(el) {
-      ui.quiz.cat = el.dataset.value;
+      Q().cat = el.dataset.value;
       resetQuiz();
       render();
     },
     "quiz-shuffle"() {
-      ui.quiz.shuffle = !ui.quiz.shuffle;
+      Q().shuffle = !Q().shuffle;
       resetQuiz();
       render();
-      toast(ui.quiz.shuffle ? "🔀 문제 순서를 섞었어요" : "회차·번호 순으로 풀어요");
+      toast(Q().shuffle ? "🔀 문제 순서를 섞었어요" : "회차·번호 순으로 풀어요");
     },
     "clear-concept"() {
-      ui.quiz.concept = null;
+      Q().concept = null;
       resetQuiz();
       render();
     },
+    "clear-word"() {
+      Q().word = null;
+      resetQuiz();
+      render();
+    },
+    // ── 영어 단어장
+    "go-word"(el) {
+      openWord(el.dataset.value);
+    },
+    "word-questions"(el) {
+      ui.view = "quiz";
+      Object.assign(Q(), { word: el.dataset.value, concept: null, exam: "전체", cat: "전체" });
+      resetQuiz();
+      render();
+      window.scrollTo(0, 0);
+    },
+    "word-toggle"(el) {
+      const w = el.dataset.value;
+      if (ui.vocab.hide && !ui.vocab.reveal.has(w) && ui.vocab.open !== w) {
+        ui.vocab.reveal.add(w); // 뜻 가림 모드: 첫 탭은 뜻만 보여 주기
+      } else ui.vocab.open = ui.vocab.open === w ? null : w;
+      document.getElementById("vocab-list").innerHTML = renderWordList();
+    },
+    "word-known"(el) {
+      const w = el.dataset.value;
+      const known = !wordState(w).k;
+      Store.setKnown(w, known);
+      toast(known ? `✔ '${w}' 외웠어요` : `'${w}' 다시 외우기`, known ? "good" : undefined);
+    },
+    "vocab-mode"(el) {
+      ui.vocab.mode = el.dataset.value;
+      render();
+    },
+    "vocab-filter"(el) {
+      ui.vocab.filter = el.dataset.value;
+      ui.vocab.limit = 60;
+      render();
+    },
+    "vocab-lv"(el) {
+      ui.vocab.lv = el.dataset.value;
+      ui.vocab.limit = 60;
+      render();
+    },
+    "vocab-sort"(el) {
+      ui.vocab.sort = el.dataset.value;
+      render();
+    },
+    "vocab-hide"() {
+      ui.vocab.hide = !ui.vocab.hide;
+      ui.vocab.reveal = new Set();
+      render();
+    },
+    "vocab-more"() {
+      ui.vocab.limit += 60;
+      document.getElementById("vocab-list").innerHTML = renderWordList();
+    },
+    "wq-setup"(el) {
+      const g = el.dataset.group;
+      ui.vocab.setup[g] = g === "size" ? Number(el.dataset.value) : el.dataset.value;
+      render();
+    },
+    "wq-start"() {
+      const { scope, dir, size } = ui.vocab.setup;
+      const words = pick(scopeWords(scope), size);
+      if (!words.length) return toast("이 범위에는 단어가 없어요");
+      ui.vocab.quiz = makeWordQuiz(words, dir);
+      render();
+      window.scrollTo(0, 0);
+    },
+    "wq-answer"(el) {
+      const z = ui.vocab.quiz;
+      if (!z || z.sel != null) return;
+      const it = z.items[z.i];
+      z.sel = Number(el.dataset.index);
+      const ok = z.sel === it.answer;
+      z.results[z.i] = ok;
+      Store.wordAnswer(it.e.w, ok);
+      render();
+    },
+    "wq-next"() {
+      const z = ui.vocab.quiz;
+      z.i += 1;
+      z.sel = null;
+      render();
+    },
+    "wq-retry"() {
+      const z = ui.vocab.quiz;
+      const words = z.items.filter((_, k) => !z.results[k]).map((it) => it.e);
+      ui.vocab.quiz = makeWordQuiz(pick(words, words.length), z.dir);
+      render();
+    },
+    "wq-exit"() {
+      ui.vocab.quiz = null;
+      render();
+    },
+    "go-confused"() {
+      ui.view = "vocab";
+      ui.vocab.mode = "quiz";
+      ui.vocab.quiz = null;
+      ui.vocab.setup.scope = "confused";
+      render();
+      window.scrollTo(0, 0);
+    },
     answer(el) {
-      if (ui.quiz.selected != null) return;
-      const q = quizList()[ui.quiz.idx];
+      if (Q().selected != null) return;
+      const q = quizList()[Q().idx];
       const i = Number(el.dataset.index);
       const correct = isCorrect(q, i);
-      ui.quiz.selected = i;
+      Q().selected = i;
       render();
       Store.recordAttempt(q, i, correct);
       if (!correct) toast("📝 오답노트에 저장했어요", "bad");
     },
     next() {
       const len = quizList().length;
-      ui.quiz.idx = (ui.quiz.idx + 1) % len;
-      if (ui.quiz.idx === 0) toast("한 바퀴 완료! 처음부터 다시 풀어요 💪");
-      ui.quiz.selected = null;
+      Q().idx = (Q().idx + 1) % len;
+      if (Q().idx === 0) toast("한 바퀴 완료! 처음부터 다시 풀어요 💪");
+      Q().selected = null;
       saveQuiz();
       render();
       window.scrollTo(0, 0);
@@ -821,9 +1333,9 @@
     },
     "concept-quiz"(el) {
       ui.view = "quiz";
-      ui.quiz.concept = el.dataset.value;
-      ui.quiz.exam = "전체";
-      ui.quiz.cat = "전체";
+      Q().concept = el.dataset.value;
+      Q().exam = "전체";
+      Q().cat = "전체";
       resetQuiz();
       render();
       window.scrollTo(0, 0);
@@ -846,12 +1358,16 @@
     } else if (e.target.id === "concept-search") {
       ui.concepts.q = e.target.value;
       document.getElementById("concept-list").innerHTML = renderConceptList();
+    } else if (e.target.id === "vocab-search") {
+      ui.vocab.q = e.target.value;
+      ui.vocab.limit = 60;
+      document.getElementById("vocab-list").innerHTML = renderWordList();
     }
   });
 
   document.addEventListener("change", (e) => {
     if (e.target.id !== "quiz-exam") return;
-    ui.quiz.exam = e.target.value;
+    Q().exam = e.target.value;
     resetQuiz();
     render();
   });
@@ -870,6 +1386,14 @@
 
   Store.on("wrong", rerenderFromData);
   Store.on("stats", () => (!ui.subject || ui.view === "stats") && render());
+  // 단어 암기 기록 변경: 단어장 목록은 목록만, 퀴즈 진행 중에는 다시 그리지 않음
+  Store.on("vocab", () => {
+    if (ui.view === "vocab" && ui.vocab.mode === "list") {
+      const active = document.activeElement;
+      if (active && active.id === "vocab-search") document.getElementById("vocab-list").innerHTML = renderWordList();
+      else render();
+    } else if (ui.view === "stats") render();
+  });
 
   Store.init().then((s) => {
     const b = document.getElementById("mode-badge");

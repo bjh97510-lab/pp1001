@@ -4,7 +4,7 @@
   const FB_VER = "10.12.2";
   const FB = (name) => `https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${name}.js`;
 
-  const listeners = { wrong: new Set(), stats: new Set() };
+  const listeners = { wrong: new Set(), stats: new Set(), vocab: new Set() };
   const emit = (key, value) => listeners[key].forEach((cb) => cb(value));
 
   const state = {
@@ -14,6 +14,8 @@
     wrong: [],
     // 과목별 통계: { history: { solved, correct }, ethics: { ... } }
     stats: {},
+    // 영어 단어 학습 기록: { word: { k: 외움 여부, c: 퀴즈 정답 수, x: 퀴즈 오답 수 } }
+    vocab: {},
   };
 
   let impl = null;
@@ -61,7 +63,7 @@
         return {};
       }
     };
-    const data = Object.assign({ uid: null, wrong: {}, stats: {} }, load());
+    const data = Object.assign({ uid: null, wrong: {}, stats: {}, vocab: {} }, load());
     if (!data.uid) data.uid = "local-" + Math.random().toString(36).slice(2, 10);
     data.stats = normalizeStats(data.stats);
 
@@ -75,8 +77,10 @@
     const publish = () => {
       state.wrong = Object.entries(data.wrong).map(([id, w]) => Object.assign({ id }, w));
       state.stats = JSON.parse(JSON.stringify(data.stats));
+      state.vocab = JSON.parse(JSON.stringify(data.vocab));
       emit("wrong", state.wrong);
       emit("stats", state.stats);
+      emit("vocab", state.vocab);
     };
 
     save();
@@ -110,6 +114,19 @@
       },
       async remove(id) {
         delete data.wrong[id];
+        save();
+        publish();
+      },
+      async wordAnswer(w, correct) {
+        const v = (data.vocab[w] = data.vocab[w] || { k: false, c: 0, x: 0 });
+        if (correct) v.c += 1;
+        else v.x += 1;
+        save();
+        publish();
+      },
+      async setKnown(w, known) {
+        const v = (data.vocab[w] = data.vocab[w] || { k: false, c: 0, x: 0 });
+        v.k = !!known;
         save();
         publish();
       },
@@ -189,6 +206,8 @@
         fs.onSnapshot(userRef, (snap) => {
           state.stats = normalizeStats(snap.exists() && snap.data().stats);
           emit("stats", state.stats);
+          state.vocab = (snap.exists() && snap.data().vocab) || {};
+          emit("vocab", state.vocab);
         });
       },
       async recordAttempt(q, userAnswer, correct) {
@@ -232,6 +251,12 @@
         // FR-09
         fs.deleteDoc(fs.doc(wrongCol, id)).catch((e) => console.error(e));
       },
+      async wordAnswer(w, correct) {
+        fs.setDoc(userRef, { vocab: { [w]: correct ? { c: fs.increment(1) } : { x: fs.increment(1) } } }, { merge: true }).catch((e) => console.error(e));
+      },
+      async setKnown(w, known) {
+        fs.setDoc(userRef, { vocab: { [w]: { k: !!known } } }, { merge: true }).catch((e) => console.error(e));
+      },
     };
   }
 
@@ -263,6 +288,8 @@
     recordAttempt: (q, a, c) => impl.recordAttempt(q, a, c),
     review: (id, a, c) => impl.review(id, a, c),
     remove: (id) => impl.remove(id),
+    wordAnswer: (w, c) => impl.wordAnswer(w, c),
+    setKnown: (w, k) => impl.setKnown(w, k),
     question: (id) => byId.get(id),
     subjectOf,
   };

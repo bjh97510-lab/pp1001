@@ -9,7 +9,11 @@ window.SUBJECTS = {
     categories: ["고조선", "삼국", "고려", "조선", "근대", "현대"],
     pdfDir: "exams",
     searchHint: "키워드 검색 (예: 대동법, 세종)",
-    hasConcepts: false,
+    hasConcepts: true,
+    conceptTab: "개념정리",
+    conceptTitle: "💡 한국사 핵심 개념정리",
+    conceptDesc: "기출에 나온 인물·사건·제도를 시대별로 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.",
+    conceptHint: "개념·키워드 검색 (예: 대동법)",
   },
   ethics: {
     id: "ethics",
@@ -21,6 +25,10 @@ window.SUBJECTS = {
     pdfDir: "exams/ethics",
     searchHint: "키워드 검색 (예: 칸트, 공리주의)",
     hasConcepts: true,
+    conceptTab: "개념풀이",
+    conceptTitle: "💡 사상가·사상 개념풀이",
+    conceptDesc: "기출에 나온 사상가와 핵심 주장을 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.",
+    conceptHint: "사상가·키워드 검색 (예: 정언 명령)",
   },
   korean: {
     id: "korean",
@@ -32,6 +40,19 @@ window.SUBJECTS = {
     pdfDir: "exams/korean",
     searchHint: "키워드 검색 (예: 역설법, 메밀꽃)",
     hasConcepts: false,
+  },
+  english: {
+    id: "english",
+    name: "영어",
+    icon: "🔤",
+    desc: "고졸 검정고시 영어 기출 전 문항 + 기출 단어장",
+    catLabel: "유형",
+    categories: ["어휘·어법", "대화문", "세부 정보", "중심 내용", "빈칸 추론", "글의 흐름"],
+    pdfDir: "exams/english",
+    searchHint: "키워드 검색 (예: stress, 안내문)",
+    hasConcepts: false,
+    hasVocab: true,
+    flowCategory: "글의 흐름",
   },
 };
 
