@@ -54,12 +54,27 @@ window.SUBJECTS = {
     hasVocab: true,
     flowCategory: "글의 흐름",
   },
+  science: {
+    id: "science",
+    name: "과학",
+    icon: "🔬",
+    desc: "고졸 검정고시 과학 기출 전 문항",
+    catLabel: "영역",
+    categories: ["물리", "화학", "생명과학", "지구과학"],
+    pdfDir: "exams/science",
+    searchHint: "키워드 검색 (예: 전자기 유도, 삼엽충)",
+    hasConcepts: true,
+    conceptTab: "개념정리",
+    conceptTitle: "💡 과학 핵심 개념정리",
+    conceptDesc: "기출에 나온 법칙·물질·현상을 영역별로 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.",
+    conceptHint: "개념·키워드 검색 (예: 중화 반응)",
+  },
 };
 
 // 이전 버전 호환
 window.ERAS = window.SUBJECTS.history.categories;
 
-// 문항 데이터는 js/exams/*.js(한국사), js/ethics/*.js(도덕), js/korean/*.js(국어)에서 이 배열에 추가됩니다.
+// 문항 데이터는 js/exams/*.js(한국사), js/ethics/*.js(도덕), js/korean/*.js(국어), js/english/*.js(영어), js/science/*.js(과학)에서 이 배열에 추가됩니다.
 // 지문 마크업: __밑줄__, {A}…{/A} 괄호 범위
 // subject 필드가 없으면 한국사로 간주합니다.
 window.QUESTION_BANK = window.QUESTION_BANK || [];
