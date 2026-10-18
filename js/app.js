@@ -593,8 +593,8 @@
       <div id="vault-list" class="mt-3">${renderVaultList()}</div>`;
   }
 
-  // ───────────── 3. 개념풀이(도덕) · 개념정리(한국사·과학) ─────────────
-  const CONCEPT_SOURCES = { ethics: () => window.ETHICS_CONCEPTS, history: () => window.HISTORY_CONCEPTS, science: () => window.SCIENCE_CONCEPTS };
+  // ───────────── 3. 개념풀이(도덕) · 개념정리(한국사·과학·수학) ─────────────
+  const CONCEPT_SOURCES = { ethics: () => window.ETHICS_CONCEPTS, history: () => window.HISTORY_CONCEPTS, science: () => window.SCIENCE_CONCEPTS, math: () => window.MATH_CONCEPTS };
   const conceptList = () => (CONCEPT_SOURCES[ui.subject] ? CONCEPT_SOURCES[ui.subject]() : null) || [];
   const TYPE_COLOR = {
     사상가: "bg-violet-100 text-violet-700",
@@ -607,6 +607,9 @@
     "물질·구조": "bg-emerald-100 text-emerald-700",
     "현상·변화": "bg-rose-100 text-rose-700",
     "기술·응용": "bg-amber-100 text-amber-800",
+    공식: "bg-sky-100 text-sky-700",
+    개념: "bg-emerald-100 text-emerald-700",
+    풀이법: "bg-rose-100 text-rose-700",
   };
 
   // 개념별 관련 기출 수 / 틀린 문제 수

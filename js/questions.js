@@ -69,12 +69,27 @@ window.SUBJECTS = {
     conceptDesc: "기출에 나온 법칙·물질·현상을 영역별로 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.",
     conceptHint: "개념·키워드 검색 (예: 중화 반응)",
   },
+  math: {
+    id: "math",
+    name: "수학",
+    icon: "📐",
+    desc: "고졸 검정고시 수학 기출 전 문항",
+    catLabel: "단원",
+    categories: ["다항식", "방정식·부등식", "도형의 방정식", "집합·명제", "함수", "경우의 수", "지수·로그·수열"],
+    pdfDir: "exams/math",
+    searchHint: "키워드 검색 (예: 나머지정리, 내분점)",
+    hasConcepts: true,
+    conceptTab: "개념정리",
+    conceptTitle: "💡 수학 핵심 개념정리",
+    conceptDesc: "기출에 나온 공식·풀이법을 단원별로 정리했어요. 카드를 눌러 시험 포인트를 확인하고 관련 기출을 풀어 보세요.",
+    conceptHint: "개념·키워드 검색 (예: 판별식)",
+  },
 };
 
 // 이전 버전 호환
 window.ERAS = window.SUBJECTS.history.categories;
 
-// 문항 데이터는 js/exams/*.js(한국사), js/ethics/*.js(도덕), js/korean/*.js(국어), js/english/*.js(영어), js/science/*.js(과학)에서 이 배열에 추가됩니다.
+// 문항 데이터는 js/exams/*.js(한국사), js/ethics/*.js(도덕), js/korean/*.js(국어), js/english/*.js(영어), js/science/*.js(과학), js/math/*.js(수학)에서 이 배열에 추가됩니다.
 // 지문 마크업: __밑줄__, {A}…{/A} 괄호 범위
 // subject 필드가 없으면 한국사로 간주합니다.
 window.QUESTION_BANK = window.QUESTION_BANK || [];
