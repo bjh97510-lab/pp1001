@@ -337,30 +337,6 @@
     }
   },
   {
-    id: "math_2018_1_15",
-    subject: "math",
-    exam: "2018년 제1회",
-    number: 15,
-    category: "지수·로그·수열",
-    concepts: ["지수법칙"],
-    question: "3^(2/3) × 3^(4/3)을 간단히 하면?",
-    passage: "",
-    imageUrl: "images/math/2018_1_15.png",
-    needsImage: false,
-    options: ["3", "3^(4/3)", "3^(5/3)", "9"],
-    answer: 3,
-    explanation: {
-      summary: "밑이 같은 거듭제곱의 곱은 지수를 더합니다. 2/3 + 4/3 = 2이므로 3² = 9입니다.",
-      options_breakdown: [
-        "오답. 지수의 합은 1이 아니라 2입니다.",
-        "오답. 지수를 더하지 않은 값입니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "정답. 3^(2/3 + 4/3) = 3² = 9입니다."
-      ],
-      key_concept: "지수법칙: aᵐ × aⁿ = aᵐ⁺ⁿ, aᵐ ÷ aⁿ = aᵐ⁻ⁿ, (aᵐ)ⁿ = aᵐⁿ, a⁰ = 1, a⁻ⁿ = 1/aⁿ."
-    }
-  },
-  {
     id: "math_2018_1_16",
     subject: "math",
     exam: "2018년 제1회",
@@ -382,102 +358,6 @@
         "정답. 시작점 x = 2에서 a = 2입니다."
       ],
       key_concept: "y = √(x − a) + b의 그래프: y = √x를 x축 방향 a, y축 방향 b만큼 평행이동, 시작점 (a, b). 정의역 x ≥ a."
-    }
-  },
-  {
-    id: "math_2018_1_17",
-    subject: "math",
-    exam: "2018년 제1회",
-    number: 17,
-    category: "지수·로그·수열",
-    concepts: ["등비수열"],
-    question: "다음 수열이 등비수열일 때, 상수 a의 값은?",
-    passage: "1, 2, 4, a, 16, …",
-    imageUrl: "images/math/2018_1_17.png",
-    needsImage: false,
-    options: ["8", "10", "12", "14"],
-    answer: 0,
-    explanation: {
-      summary: "1, 2, 4로 공비가 2인 등비수열입니다. 네 번째 항은 4 × 2 = 8이고, 그 다음 8 × 2 = 16으로 확인됩니다.",
-      options_breakdown: [
-        "정답. 4 × 2 = 8입니다.",
-        "오답. 등차수열처럼 더한 값이 아닙니다.",
-        "오답. 공비 2에 맞지 않습니다.",
-        "오답. 공비 2에 맞지 않습니다."
-      ],
-      key_concept: "등비수열: 이웃한 항의 비(공비 r)가 일정, aₙ = a₁·rⁿ⁻¹. 등차수열: 이웃한 항의 차(공차 d)가 일정, aₙ = a₁ + (n − 1)d."
-    }
-  },
-  {
-    id: "math_2018_1_18",
-    subject: "math",
-    exam: "2018년 제1회",
-    number: 18,
-    category: "지수·로그·수열",
-    concepts: ["수열의 합"],
-    question: "Σ(k=1~10) aₖ = 5일 때, Σ(k=1~10) (aₖ + 1)의 값은?",
-    passage: "",
-    imageUrl: "images/math/2018_1_18.png",
-    needsImage: false,
-    options: ["13", "14", "15", "16"],
-    answer: 2,
-    explanation: {
-      summary: "Σ(aₖ + 1) = Σaₖ + Σ1 = 5 + 10 = 15입니다. 1을 10번 더하면 10입니다.",
-      options_breakdown: [
-        "오답. 계산에 맞지 않습니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "정답. 5 + 10 = 15입니다.",
-        "오답. 계산에 맞지 않습니다."
-      ],
-      key_concept: "Σ의 성질: Σ(aₖ + bₖ) = Σaₖ + Σbₖ, Σc·aₖ = cΣaₖ, Σ(k=1~n) c = cn."
-    }
-  },
-  {
-    id: "math_2018_1_19",
-    subject: "math",
-    exam: "2018년 제1회",
-    number: 19,
-    category: "지수·로그·수열",
-    concepts: ["수열의 귀납적 정의"],
-    question: "수열 {aₙ}이 a₁ = 1, aₙ₊₁ = aₙ + 4 (n = 1, 2, 3, …)를 만족할 때, a₃의 값은?",
-    passage: "",
-    imageUrl: "images/math/2018_1_19.png",
-    needsImage: false,
-    options: ["9", "10", "11", "12"],
-    answer: 0,
-    explanation: {
-      summary: "앞 항에 4를 더하는 규칙입니다. a₂ = 1 + 4 = 5, a₃ = 5 + 4 = 9입니다.",
-      options_breakdown: [
-        "정답. a₃ = 9입니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "오답. 계산에 맞지 않습니다."
-      ],
-      key_concept: "귀납적 정의: 첫째 항과 이웃 항 사이의 관계식으로 수열을 정의. aₙ₊₁ = aₙ + d는 등차수열, aₙ₊₁ = r·aₙ은 등비수열. 차례로 대입해 구한다."
-    }
-  },
-  {
-    id: "math_2018_1_20",
-    subject: "math",
-    exam: "2018년 제1회",
-    number: 20,
-    category: "지수·로그·수열",
-    concepts: ["로그의 성질"],
-    question: "log 4 + log 25를 간단히 하면?",
-    passage: "",
-    imageUrl: "images/math/2018_1_20.png",
-    needsImage: false,
-    options: ["1", "2", "3", "4"],
-    answer: 1,
-    explanation: {
-      summary: "로그의 합은 진수의 곱입니다. log 4 + log 25 = log(4 × 25) = log 100 = log 10² = 2입니다.",
-      options_breakdown: [
-        "오답. log 10 = 1입니다.",
-        "정답. log 100 = 2입니다.",
-        "오답. log 1000 = 3입니다.",
-        "오답. 계산에 맞지 않습니다."
-      ],
-      key_concept: "로그의 성질: log M + log N = log MN, log M − log N = log(M/N), log Mⁿ = n log M. 밑이 없으면 상용로그(밑 10), log 10ⁿ = n."
     }
   }
 );

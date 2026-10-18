@@ -75,7 +75,7 @@ window.SUBJECTS = {
     icon: "📐",
     desc: "고졸 검정고시 수학 기출 전 문항",
     catLabel: "단원",
-    categories: ["다항식", "방정식·부등식", "도형의 방정식", "집합·명제", "함수", "경우의 수", "지수·로그·수열"],
+    categories: ["다항식", "방정식·부등식", "도형의 방정식", "집합·명제", "함수", "경우의 수"],
     pdfDir: "exams/math",
     searchHint: "키워드 검색 (예: 나머지정리, 내분점)",
     hasConcepts: true,

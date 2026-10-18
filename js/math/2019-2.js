@@ -337,30 +337,6 @@
     }
   },
   {
-    id: "math_2019_2_15",
-    subject: "math",
-    exam: "2019년 제2회",
-    number: 15,
-    category: "지수·로그·수열",
-    concepts: ["등차수열"],
-    question: "다음 수열이 등차수열일 때, 상수 a의 값은?",
-    passage: "1, 4, 7, 10, a, 16, …",
-    imageUrl: "images/math/2019_2_15.png",
-    needsImage: false,
-    options: ["11", "12", "13", "14"],
-    answer: 2,
-    explanation: {
-      summary: "공차가 3이므로 a = 10 + 3 = 13입니다(13 + 3 = 16으로 확인).",
-      options_breakdown: [
-        "오답. 공차 3에 맞지 않습니다.",
-        "오답. 공차 3에 맞지 않습니다.",
-        "정답. a = 13입니다.",
-        "오답. 공차 3에 맞지 않습니다."
-      ],
-      key_concept: "등차수열의 빈칸: 앞 항 + 공차, 또는 앞뒤 항의 평균(등차중항)."
-    }
-  },
-  {
     id: "math_2019_2_16",
     subject: "math",
     exam: "2019년 제2회",
@@ -382,102 +358,6 @@
         "정답. 시작점 (−2, −1)입니다."
       ],
       key_concept: "y = √(x − a) + b의 시작점은 (a, b). √(x + 2)는 a = −2."
-    }
-  },
-  {
-    id: "math_2019_2_17",
-    subject: "math",
-    exam: "2019년 제2회",
-    number: 17,
-    category: "지수·로그·수열",
-    concepts: ["수열의 합"],
-    question: "Σ(k=1~5) (aₖ + 2) = 16일 때, Σ(k=1~5) aₖ의 값은?",
-    passage: "",
-    imageUrl: "images/math/2019_2_17.png",
-    needsImage: false,
-    options: ["5", "6", "7", "8"],
-    answer: 1,
-    explanation: {
-      summary: "Σ(aₖ + 2) = Σaₖ + 2 × 5 = Σaₖ + 10 = 16이므로 Σaₖ = 6입니다.",
-      options_breakdown: [
-        "오답. 계산에 맞지 않습니다.",
-        "정답. 16 − 10 = 6입니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "오답. 계산에 맞지 않습니다."
-      ],
-      key_concept: "Σ(k=1~n) c = cn. 상수 2를 5번 더하면 10."
-    }
-  },
-  {
-    id: "math_2019_2_18",
-    subject: "math",
-    exam: "2019년 제2회",
-    number: 18,
-    category: "지수·로그·수열",
-    concepts: ["수열의 귀납적 정의"],
-    question: "수열 {aₙ}이 a₁ = 2, aₙ₊₁ = (1/2)aₙ (n = 1, 2, 3, …)을 만족할 때, a₄의 값은?",
-    passage: "",
-    imageUrl: "images/math/2019_2_18.png",
-    needsImage: false,
-    options: ["1/2", "1/4", "1/8", "1/16"],
-    answer: 1,
-    explanation: {
-      summary: "공비 1/2인 등비수열입니다. a₂ = 1, a₃ = 1/2, a₄ = 1/4입니다.",
-      options_breakdown: [
-        "오답. a₃의 값입니다.",
-        "정답. a₄ = 1/4입니다.",
-        "오답. a₅의 값입니다.",
-        "오답. a₆의 값입니다."
-      ],
-      key_concept: "aₙ₊₁ = r·aₙ은 공비 r인 등비수열: aₙ = a₁·rⁿ⁻¹ = 2 × (1/2)³ = 1/4."
-    }
-  },
-  {
-    id: "math_2019_2_19",
-    subject: "math",
-    exam: "2019년 제2회",
-    number: 19,
-    category: "지수·로그·수열",
-    concepts: ["지수법칙"],
-    question: "2² ÷ 2⁻¹을 간단히 한 것은?",
-    passage: "",
-    imageUrl: "images/math/2019_2_19.png",
-    needsImage: false,
-    options: ["4", "6", "8", "10"],
-    answer: 2,
-    explanation: {
-      summary: "나눗셈은 지수를 뺍니다. 2²⁻⁽⁻¹⁾ = 2³ = 8입니다.",
-      options_breakdown: [
-        "오답. 2²의 값입니다.",
-        "오답. 계산에 맞지 않습니다.",
-        "정답. 2³ = 8입니다.",
-        "오답. 계산에 맞지 않습니다."
-      ],
-      key_concept: "aᵐ ÷ aⁿ = aᵐ⁻ⁿ. 음수를 빼면 더하는 것: 2 − (−1) = 3."
-    }
-  },
-  {
-    id: "math_2019_2_20",
-    subject: "math",
-    exam: "2019년 제2회",
-    number: 20,
-    category: "지수·로그·수열",
-    concepts: ["로그의 뜻"],
-    question: "표는 양수 N에 대하여 log N의 값을 나타낸 것이다. 상수 a의 값은? (단, log N은 log₁₀N이다.)",
-    passage: "N = 0.01일 때 log N = −2, N = 0.1일 때 log N = a, N = 1일 때 0, N = 10일 때 1",
-    imageUrl: "images/math/2019_2_20.png",
-    needsImage: false,
-    options: ["−3", "−1", "1", "3"],
-    answer: 1,
-    explanation: {
-      summary: "0.1 = 10⁻¹이므로 log 0.1 = −1입니다. 따라서 a = −1입니다.",
-      options_breakdown: [
-        "오답. log 0.001의 값입니다.",
-        "정답. log 10⁻¹ = −1입니다.",
-        "오답. log 10의 값입니다.",
-        "오답. log 1000의 값입니다."
-      ],
-      key_concept: "상용로그: log 10ⁿ = n. log 0.1 = −1, log 0.01 = −2, log 1 = 0, log 100 = 2."
     }
   }
 );
