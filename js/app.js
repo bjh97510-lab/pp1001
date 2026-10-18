@@ -58,6 +58,12 @@
   const esc = (s) =>
     String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+  // 분수 마크업 {분자/분모} → 세로 분수 (수학)
+  const FRAC_RE = /\{([^{}]+?)\/([^{}]+?)\}/g;
+  const frac = (s) => s.replace(FRAC_RE, '<span class="frac"><span>$1</span><span>$2</span></span>');
+  const fmt = (s) => frac(esc(s));
+  const plain = (s) => String(s == null ? "" : s).replace(FRAC_RE, "$1/$2");
+
   const fmtDate = (ms) => {
     if (!ms) return "";
     const d = new Date(ms);
@@ -118,7 +124,7 @@
 
   function questionBody(q) {
     const hasGroup = !!q.groupLabel;
-    const questionEl = `<p class="${hasGroup ? "mt-4" : ""} text-[17px] leading-relaxed font-semibold text-slate-900">${esc(q.question)}</p>`;
+    const questionEl = `<p class="${hasGroup ? "mt-4" : ""} text-[17px] leading-relaxed font-semibold text-slate-900">${fmt(q.question)}</p>`;
     // 공유 지문이 있으면 지문을 먼저, 없으면 발문을 먼저 (시험지 순서)
     return hasGroup
       ? `${passageBlock(q, "")}${questionEl}${extraBlock(q)}`
@@ -192,7 +198,7 @@
       <section class="fade-in mt-5 rounded-2xl bg-white border border-slate-200 overflow-hidden">
         <div class="px-4 py-3 bg-brand-50 border-b border-brand-100">
           <h3 class="font-bold text-brand-700">💡 해설</h3>
-          <p class="mt-1.5 text-[15px] leading-relaxed text-slate-800">${esc(ex.summary)}</p>
+          <p class="mt-1.5 text-[15px] leading-relaxed text-slate-800">${fmt(ex.summary)}</p>
         </div>
         <div class="px-4 py-3">
           <h4 class="text-sm font-bold text-slate-500 mb-2">선지별 분석</h4>
@@ -203,7 +209,7 @@
                 const mine = i === userAnswer && !ok;
                 return `<li class="flex gap-2.5 rounded-lg px-3 py-2 text-[14px] leading-relaxed ${ok ? "bg-emerald-50" : mine ? "bg-rose-50" : "bg-slate-50"}">
                   <span class="shrink-0 font-bold ${ok ? "text-emerald-600" : mine ? "text-rose-600" : "text-slate-400"}">${NUM[i]}</span>
-                  <span class="text-slate-700">${esc(t)}${mine ? ` <span class="text-rose-600 font-semibold">← 내가 고른 답</span>` : ""}</span>
+                  <span class="text-slate-700">${fmt(t)}${mine ? ` <span class="text-rose-600 font-semibold">← 내가 고른 답</span>` : ""}</span>
                 </li>`;
               })
               .join("")}
@@ -217,7 +223,7 @@
         ${ex.key_concept ? `
         <div class="mx-4 mb-4 rounded-xl bg-violet-50 border border-violet-200 px-4 py-3">
           <h4 class="text-sm font-bold text-violet-700">🔑 핵심 개념 (Key Concept)</h4>
-          <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${esc(ex.key_concept)}</p>
+          <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${fmt(ex.key_concept)}</p>
         </div>` : ""}
         ${conceptLinks(q)}
         ${wordLinks(q)}
@@ -548,9 +554,9 @@
             ${w.isResolved ? badge("✓ 복습 완료", "bg-emerald-100 text-emerald-700") : badge("미완료", "bg-rose-100 text-rose-700")}
             <span class="ml-auto text-xs text-slate-400">${fmtDate(w.createdAt)}</span>
           </div>
-          <p class="mt-2 font-semibold text-[15px] leading-snug text-slate-900">${esc(q.question)}</p>
+          <p class="mt-2 font-semibold text-[15px] leading-snug text-slate-900">${fmt(q.question)}</p>
           <div class="mt-1.5 flex items-center justify-between text-sm">
-            <span class="text-slate-500">내 답 <span class="text-rose-600 font-semibold">${NUM[w.userAnswer]} ${esc(q.options[w.userAnswer].replace(/__|\{\/?[A-Z가-힣]\}/g, ""))}</span></span>
+            <span class="text-slate-500">내 답 <span class="text-rose-600 font-semibold">${NUM[w.userAnswer]} ${esc(plain(q.options[w.userAnswer]).replace(/__|\{\/?[A-Z가-힣]\}/g, ""))}</span></span>
             <span class="text-slate-400 text-lg leading-none transition ${open ? "rotate-180" : ""}">⌄</span>
           </div>
         </button>
@@ -639,22 +645,22 @@
             ${wn ? badge(`오답 ${wn}`, "bg-rose-100 text-rose-700") : ""}
             <span class="ml-auto text-xs text-slate-400 tabular-nums">기출 ${n}</span>
           </div>
-          <p class="mt-1 text-sm text-slate-500">${esc(c.tagline || "")}</p>
-          <p class="mt-1.5 text-[15px] leading-relaxed text-slate-800 ${open ? "" : "line-clamp-2"}">${esc(c.summary || "")}</p>
+          <p class="mt-1 text-sm text-slate-500">${fmt(c.tagline || "")}</p>
+          <p class="mt-1.5 text-[15px] leading-relaxed text-slate-800 ${open ? "" : "line-clamp-2"}">${fmt(c.summary || "")}</p>
         </button>
         ${open ? `
         <div class="px-4 pb-4 fade-in">
           ${c.keywords && c.keywords.length ? `
-            <div class="flex flex-wrap gap-1.5">${c.keywords.map((k) => `<span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium">${esc(k)}</span>`).join("")}</div>` : ""}
+            <div class="flex flex-wrap gap-1.5">${c.keywords.map((k) => `<span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium">${fmt(k)}</span>`).join("")}</div>` : ""}
           ${c.points && c.points.length ? `
             <div class="mt-3 rounded-xl bg-brand-50 border border-brand-100 px-4 py-3">
               <h4 class="text-sm font-bold text-brand-700">📌 시험에 이렇게 나와요</h4>
-              <ul class="mt-1.5 grid gap-1 text-[14px] leading-relaxed text-slate-800 list-disc pl-5">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+              <ul class="mt-1.5 grid gap-1 text-[14px] leading-relaxed text-slate-800 list-disc pl-5">${c.points.map((p) => `<li>${fmt(p)}</li>`).join("")}</ul>
             </div>` : ""}
           ${c.compare ? `
             <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
               <h4 class="text-sm font-bold text-amber-800">⚠️ 헷갈리지 말기</h4>
-              <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${esc(c.compare)}</p>
+              <p class="mt-1 text-[14px] leading-relaxed text-slate-800">${fmt(c.compare)}</p>
             </div>` : ""}
           ${c.related && c.related.length ? `
             <div class="mt-3 flex flex-wrap items-center gap-2">

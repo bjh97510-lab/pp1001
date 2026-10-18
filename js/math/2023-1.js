@@ -251,17 +251,17 @@
     passage: "",
     imageUrl: "images/math/2023_1_11.png",
     needsImage: false,
-    options: ["3", "7/2", "4", "9/2"],
+    options: ["3", "{7/2}", "4", "{9/2}"],
     answer: 2,
     explanation: {
-      summary: "내분점 공식 (m·x₂ + n·x₁)/(m + n) = (3 × 5 + 1 × 1)/(3 + 1) = 16/4 = 4입니다. A에서 B쪽으로 전체의 3/4만큼 간 점입니다.",
+      summary: "내분점 공식 {m·x₂ + n·x₁/m + n} = {3 × 5 + 1 × 1/3 + 1} = {16/4} = 4입니다. A에서 B쪽으로 전체의 {3/4}만큼 간 점입니다.",
       options_breakdown: [
         "오답. 3은 중점입니다.",
         "오답. 계산에 맞지 않습니다.",
         "정답. P(4)입니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "선분 AB를 m : n으로 내분하는 점: (m·B + n·A)/(m + n). 비율의 순서에 주의(B에 m을 곱함)."
+      key_concept: "선분 AB를 m : n으로 내분하는 점: {m·B + n·A/m + n}. 비율의 순서에 주의(B에 m을 곱함)."
     }
   },
   {
@@ -415,21 +415,21 @@
     number: 18,
     category: "함수",
     concepts: ["유리함수"],
-    question: "유리함수 y = 1/(x − 2) − 1의 그래프는 유리함수 y = 1/x의 그래프를 x축의 방향으로 a만큼, y축의 방향으로 b만큼 평행이동한 것이다. 두 상수 a, b에 대하여 a + b의 값은?",
+    question: "유리함수 y = {1/x − 2} − 1의 그래프는 유리함수 y = {1/x}의 그래프를 x축의 방향으로 a만큼, y축의 방향으로 b만큼 평행이동한 것이다. 두 상수 a, b에 대하여 a + b의 값은?",
     passage: "",
     imageUrl: "images/math/2023_1_18.png",
     needsImage: false,
     options: ["−1", "1", "3", "5"],
     answer: 1,
     explanation: {
-      summary: "y = 1/(x − a) + b 꼴과 비교하면 a = 2, b = −1이므로 a + b = 1입니다.",
+      summary: "y = {1/x − a} + b 꼴과 비교하면 a = 2, b = −1이므로 a + b = 1입니다.",
       options_breakdown: [
         "오답. b만의 값입니다.",
         "정답. 2 + (−1) = 1입니다.",
         "오답. 부호가 틀렸습니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "y = k/(x − a) + b: x축 방향 a, y축 방향 b 평행이동."
+      key_concept: "y = {k/x − a} + b: x축 방향 a, y축 방향 b 평행이동."
     }
   },
   {
@@ -477,7 +477,7 @@
         "오답. 계산에 맞지 않습니다.",
         "정답. ₄C₂ = 6입니다."
       ],
-      key_concept: "₄C₂ = 4 × 3 / 2 = 6."
+      key_concept: "₄C₂ = {4 × 3/2} = 6."
     }
   }
 );

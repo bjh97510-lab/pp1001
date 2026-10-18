@@ -199,21 +199,21 @@
     number: 9,
     category: "도형의 방정식",
     concepts: ["직선의 방정식"],
-    question: "직선 y = −(1/3)x + 2에 수직이고 점 (0, 1)을 지나는 직선의 방정식은?",
+    question: "직선 y = −{1/3}x + 2에 수직이고 점 (0, 1)을 지나는 직선의 방정식은?",
     passage: "",
     imageUrl: "images/math/2020_2_09.png",
     needsImage: false,
-    options: ["y = −(1/3)x", "y = −(1/3)x + 1", "y = 3x", "y = 3x + 1"],
+    options: ["y = −{1/3}x", "y = −{1/3}x + 1", "y = 3x", "y = 3x + 1"],
     answer: 3,
     explanation: {
-      summary: "수직이므로 기울기의 곱이 −1입니다. −1/3 × m = −1에서 m = 3이고, (0, 1)을 지나므로 y = 3x + 1입니다.",
+      summary: "수직이므로 기울기의 곱이 −1입니다. {−1/3} × m = −1에서 m = 3이고, (0, 1)을 지나므로 y = 3x + 1입니다.",
       options_breakdown: [
         "오답. 평행한 직선의 기울기입니다.",
         "오답. 평행한 직선입니다.",
         "오답. (0, 1)을 지나지 않습니다.",
         "정답. 기울기 3, y절편 1입니다."
       ],
-      key_concept: "수직 조건: m₁ × m₂ = −1. −1/3의 수직 기울기는 3."
+      key_concept: "수직 조건: m₁ × m₂ = −1. {−1/3}의 수직 기울기는 3."
     }
   },
   {
@@ -343,21 +343,21 @@
     number: 15,
     category: "함수",
     concepts: ["유리함수"],
-    question: "유리함수 y = 1/(x − 1) + a의 그래프가 그림과 같을 때, 상수 a의 값은?",
+    question: "유리함수 y = {1/x − 1} + a의 그래프가 그림과 같을 때, 상수 a의 값은?",
     passage: "",
     imageUrl: "images/math/2020_2_15.png",
     needsImage: false,
     options: ["1", "2", "3", "4"],
     answer: 1,
     explanation: {
-      summary: "y = 1/(x − 1) + a의 점근선은 x = 1, y = a입니다. 그림에서 가로 점근선이 y = 2이므로 a = 2입니다.",
+      summary: "y = {1/x − 1} + a의 점근선은 x = 1, y = a입니다. 그림에서 가로 점근선이 y = 2이므로 a = 2입니다.",
       options_breakdown: [
         "오답. 1은 세로 점근선 x = 1의 값입니다.",
         "정답. 가로 점근선 y = 2에서 a = 2입니다.",
         "오답. 계산에 맞지 않습니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "y = k/(x − p) + q의 가로 점근선은 y = q. 그래프의 점근선을 읽어 상수를 구한다."
+      key_concept: "y = {k/x − p} + q의 가로 점근선은 y = q. 그래프의 점근선을 읽어 상수를 구한다."
     }
   }
 );

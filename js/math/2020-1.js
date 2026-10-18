@@ -110,14 +110,14 @@
     options: ["−5", "−1", "1", "5"],
     answer: 3,
     explanation: {
-      summary: "근과 계수의 관계에서 두 근의 합은 −(x의 계수)/(x²의 계수) = 5입니다. 실제로 근은 1과 4이고 합은 5입니다.",
+      summary: "근과 계수의 관계에서 두 근의 합은 −{x의 계수/x²의 계수} = 5입니다. 실제로 근은 1과 4이고 합은 5입니다.",
       options_breakdown: [
         "오답. 부호가 반대입니다.",
         "오답. 계산에 맞지 않습니다.",
         "오답. 계산에 맞지 않습니다.",
         "정답. α + β = 5입니다."
       ],
-      key_concept: "ax² + bx + c = 0의 두 근 α, β: α + β = −b/a, αβ = c/a."
+      key_concept: "ax² + bx + c = 0의 두 근 α, β: α + β = {−b/a}, αβ = {c/a}."
     }
   },
   {
@@ -203,7 +203,7 @@
     passage: "",
     imageUrl: "images/math/2020_1_09.png",
     needsImage: false,
-    options: ["y = −(1/3)x − 1", "y = −(1/3)x + 1", "y = 3x − 1", "y = 3x + 1"],
+    options: ["y = −{1/3}x − 1", "y = −{1/3}x + 1", "y = 3x − 1", "y = 3x + 1"],
     answer: 2,
     explanation: {
       summary: "평행하므로 기울기 3, (0, −1)을 지나므로 y절편 −1입니다. y = 3x − 1입니다.",

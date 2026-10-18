@@ -319,21 +319,21 @@
     number: 14,
     category: "함수",
     concepts: ["유리함수"],
-    question: "유리함수 y = 1/(x − 2) + 3의 그래프로 알맞은 것은?",
+    question: "유리함수 y = {1/x − 2} + 3의 그래프로 알맞은 것은?",
     passage: "",
     imageUrl: "images/math/2019_1_14.png",
     needsImage: false,
     options: ["①", "②", "③", "④"],
     answer: 0,
     explanation: {
-      summary: "y = 1/(x − 2) + 3은 y = 1/x를 x축 방향 2, y축 방향 3만큼 평행이동한 그래프로 점근선이 x = 2, y = 3입니다. 점근선이 x = 2, y = 3인 그래프는 ①입니다.",
+      summary: "y = {1/x − 2} + 3은 y = {1/x}를 x축 방향 2, y축 방향 3만큼 평행이동한 그래프로 점근선이 x = 2, y = 3입니다. 점근선이 x = 2, y = 3인 그래프는 ①입니다.",
       options_breakdown: [
         "정답. 점근선 x = 2, y = 3입니다.",
         "오답. 점근선이 x = 2, y = −3입니다.",
         "오답. 점근선이 x = −2, y = 3입니다.",
         "오답. 점근선이 x = −2, y = −3입니다."
       ],
-      key_concept: "y = k/(x − p) + q의 점근선은 x = p, y = q. 분모가 0이 되는 x와 상수항 q를 확인."
+      key_concept: "y = {k/x − p} + q의 점근선은 x = p, y = q. 분모가 0이 되는 x와 상수항 q를 확인."
     }
   },
   {

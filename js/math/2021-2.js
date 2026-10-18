@@ -134,14 +134,14 @@
     options: ["2", "3", "4", "5"],
     answer: 2,
     explanation: {
-      summary: "두 근의 합은 −(−4)/1 = 4입니다. 실제 근 5와 −1의 합도 4입니다.",
+      summary: "두 근의 합은 −{−4/1} = 4입니다. 실제 근 5와 −1의 합도 4입니다.",
       options_breakdown: [
         "오답. 계산에 맞지 않습니다.",
         "오답. 계산에 맞지 않습니다.",
         "정답. α + β = 4입니다.",
         "오답. 5는 근 중 하나입니다."
       ],
-      key_concept: "α + β = −b/a. x의 계수가 −4이면 합은 4."
+      key_concept: "α + β = {−b/a}. x의 계수가 −4이면 합은 4."
     }
   },
   {
@@ -275,7 +275,7 @@
     passage: "",
     imageUrl: "images/math/2021_2_12.png",
     needsImage: false,
-    options: ["y = (1/2)x + 1", "y = (1/2)x + 6", "y = 2x + 1", "y = 2x + 6"],
+    options: ["y = {1/2}x + 1", "y = {1/2}x + 6", "y = 2x + 1", "y = 2x + 6"],
     answer: 3,
     explanation: {
       summary: "평행하므로 기울기 2, (0, 6)을 지나므로 y절편 6입니다. y = 2x + 6입니다.",
@@ -415,21 +415,21 @@
     number: 18,
     category: "함수",
     concepts: ["유리함수"],
-    question: "유리함수 y = 1/(x − a) + 4의 그래프의 점근선은 두 직선 x = 3, y = 4이다. 상수 a의 값은?",
+    question: "유리함수 y = {1/x − a} + 4의 그래프의 점근선은 두 직선 x = 3, y = 4이다. 상수 a의 값은?",
     passage: "",
     imageUrl: "images/math/2021_2_18.png",
     needsImage: false,
     options: ["1", "3", "5", "7"],
     answer: 1,
     explanation: {
-      summary: "y = 1/(x − a) + 4의 세로 점근선은 x = a입니다. x = 3이므로 a = 3입니다.",
+      summary: "y = {1/x − a} + 4의 세로 점근선은 x = a입니다. x = 3이므로 a = 3입니다.",
       options_breakdown: [
         "오답. 계산에 맞지 않습니다.",
         "정답. a = 3입니다.",
         "오답. 계산에 맞지 않습니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "y = k/(x − p) + q의 점근선: x = p(분모를 0으로 만드는 값), y = q."
+      key_concept: "y = {k/x − p} + q의 점근선: x = p(분모를 0으로 만드는 값), y = q."
     }
   },
   {
@@ -470,14 +470,14 @@
     options: ["8", "10", "12", "14"],
     answer: 1,
     explanation: {
-      summary: "순서 없이 고르므로 조합 ₅C₂ = (5 × 4)/(2 × 1) = 10입니다.",
+      summary: "순서 없이 고르므로 조합 ₅C₂ = {5 × 4/2 × 1} = 10입니다.",
       options_breakdown: [
         "오답. 계산에 맞지 않습니다.",
         "정답. ₅C₂ = 10입니다.",
         "오답. 계산에 맞지 않습니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "₅C₂ = 5 × 4 / 2 = 10. '선택' → 조합."
+      key_concept: "₅C₂ = {5 × 4/2} = 10. '선택' → 조합."
     }
   }
 );

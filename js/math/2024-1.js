@@ -251,17 +251,17 @@
     passage: "",
     imageUrl: "images/math/2024_1_11.png",
     needsImage: false,
-    options: ["3", "7/2", "4", "9/2"],
+    options: ["3", "{7/2}", "4", "{9/2}"],
     answer: 0,
     explanation: {
-      summary: "P = (2 × 6 + 3 × 1)/(2 + 3) = 15/5 = 3입니다.",
+      summary: "P = {2 × 6 + 3 × 1/2 + 3} = {15/5} = 3입니다.",
       options_breakdown: [
         "정답. P(3)입니다.",
-        "오답. 7/2는 중점입니다.",
+        "오답. {7/2}는 중점입니다.",
         "오답. 3 : 2로 내분한 점입니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "m : n 내분점 (m·B + n·A)/(m + n). 2 : 3이면 A에 더 가깝다."
+      key_concept: "m : n 내분점 {m·B + n·A/m + n}. 2 : 3이면 A에 더 가깝다."
     }
   },
   {
@@ -415,7 +415,7 @@
     number: 18,
     category: "함수",
     concepts: ["유리함수"],
-    question: "유리함수 y = 1/(x − 2) + 3의 그래프는 유리함수 y = 1/x의 그래프를 x축의 방향으로 a만큼, y축의 방향으로 b만큼 평행이동한 것이다. 두 상수 a, b에 대하여 a + b의 값은?",
+    question: "유리함수 y = {1/x − 2} + 3의 그래프는 유리함수 y = {1/x}의 그래프를 x축의 방향으로 a만큼, y축의 방향으로 b만큼 평행이동한 것이다. 두 상수 a, b에 대하여 a + b의 값은?",
     passage: "",
     imageUrl: "images/math/2024_1_18.png",
     needsImage: false,
@@ -429,7 +429,7 @@
         "정답. 2 + 3 = 5입니다.",
         "오답. 계산에 맞지 않습니다."
       ],
-      key_concept: "y = k/(x − a) + b: 점근선 x = a, y = b."
+      key_concept: "y = {k/x − a} + b: 점근선 x = a, y = b."
     }
   },
   {

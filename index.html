@@ -30,6 +30,10 @@
     .rng { background: #ede9fe; border-radius: 4px; padding: 0 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
     .rng::before { content: "[" attr(data-l) "] "; font-weight: 700; color: #6d28d9; }
     u { text-underline-offset: 3px; }
+    /* 수학 분수 {분자/분모} */
+    .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.15; margin: 0 0.15em; font-size: 0.95em; }
+    .frac > span { padding: 0 0.2em; }
+    .frac > span:last-child { border-top: 1px solid currentColor; }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
