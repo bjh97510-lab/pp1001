@@ -86,7 +86,7 @@
       ${active ? "bg-brand-600 border-brand-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:border-brand-500"}">${esc(label)}</button>`;
 
   const catChips = (current, action) =>
-    `<div class="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
+    `<div class="flex flex-wrap gap-2 pb-1">
       ${["전체", ...subj().categories].map((e) => chip(e, e === current, action)).join("")}
     </div>`;
 
@@ -922,8 +922,8 @@
           class="w-full min-h-[48px] rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-500" />
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">🔍</span>
       </div>
-      <div class="mt-3 -mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${VOCAB_FILTERS.map(([k, l]) => chip2("vocab-filter", k, l, v.filter === k)).join("")}</div>
-      <div class="mt-2 -mx-4 px-4 flex gap-2 overflow-x-auto pb-1 items-center" style="scrollbar-width:none">
+      <div class="mt-3 flex flex-wrap gap-2 pb-1">${VOCAB_FILTERS.map(([k, l]) => chip2("vocab-filter", k, l, v.filter === k)).join("")}</div>
+      <div class="mt-2 flex flex-wrap gap-2 pb-1 items-center">
         ${[["all", "모든 수준"], ["1", "기초"], ["2", "필수"], ["3", "심화"]].map(([k, l]) => chip2("vocab-lv", k, l, v.lv === k)).join("")}
         <span class="w-px h-6 bg-slate-300 shrink-0"></span>
         ${chip2("vocab-sort", v.sort === "freq" ? "abc" : "freq", v.sort === "freq" ? "빈도순" : "ABC순", false)}
